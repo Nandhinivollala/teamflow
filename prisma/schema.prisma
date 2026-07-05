@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SystemRole {
+  ADMIN
+  USER
+}
+
+enum ProjectRole {
+  PROJECT_MANAGER
+  MEMBER
+}
+
+enum ReviewAssignmentStatus {
+  ASSIGNED
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+enum ViewMode {
+  KANBAN
+  CALENDAR
+  LIST
+}
+
+enum RcaSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model User {
+  id                        String                  @id @default(cuid())
+  email                     String                  @unique
+  name                      String
+  passwordHash              String?
+  systemRole                SystemRole              @default(USER)
+  emailNotificationsEnabled Boolean                 @default(true)
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  memberships               ProjectMembership[]
+  viewPreferences           UserProjectPreference[]
+  tasksCreated              Task[]                  @relation("TaskCreator")
+  tasksAssigned             Task[]                  @relation("TaskAssignee")
+  rcasCreated               RootCauseAnalysis[]     @relation("RcaCreator")
+  reviewAssignments         ReviewAssignment[]      @relation("Reviewer")
+  comments                  Comment[]
+  mentions                  CommentMention[]
+  notifications             Notification[]
+  auditEntries              AuditLog[]               @relation("AuditActor")
+}
+
+model Project {
+  id          String              @id @default(cuid())
+  key         String              @unique
+  name        String
+  description String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  memberships ProjectMembership[]
+  preferences UserProjectPreference[]
+  tasks       TaskProject[]
+  rcas        RootCauseAnalysis[]
+
+  @@index([name])
+}
+
+model ProjectMembership {
+  projectId String
+  userId    String
+  role      ProjectRole @default(MEMBER)
+  joinedAt  DateTime    @default(now())
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([userId, role])
+}
+
+model UserProjectPreference {
+  userId    String
+  projectId String
+  viewMode  ViewMode @default(KANBAN)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+}
+
+model Task {
+  id          String           @id @default(cuid())
+  sequence    Int              @unique @default(autoincrement())
+  title       String
+  description String?
+  status      String
+  priority    String?
+  dueAt       DateTime?
+  creatorId   String
+  assigneeId  String?
+  parentTaskId String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  creator     User             @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee    User?            @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  parentTask  Task?            @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  childTasks  Task[]           @relation("TaskHierarchy")
+  projects    TaskProject[]
+  blockers    TaskDependency[] @relation("BlockedTask")
+  dependents  TaskDependency[] @relation("BlockingTask")
+  attachments Attachment[]
+  comments    Comment[]
+
+  @@index([status, dueAt])
+  @@index([assigneeId, status])
+  @@index([parentTaskId])
+}
+
+model TaskProject {
+  taskId    String
+  projectId String
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, projectId])
+  @@index([projectId, taskId])
+}
+
+model TaskDependency {
+  blockedTaskId  String
+  blockingTaskId String
+  createdAt      DateTime @default(now())
+  blockedTask    Task     @relation("BlockedTask", fields: [blockedTaskId], references: [id], onDelete: Cascade)
+  blockingTask   Task     @relation("BlockingTask", fields: [blockingTaskId], references: [id], onDelete: Cascade)
+
+  @@id([blockedTaskId, blockingTaskId])
+  @@index([blockingTaskId])
+}
+
+model RootCauseAnalysis {
+  id                String             @id @default(cuid())
+  projectId         String
+  title             String
+  summary           String?
+  severity          RcaSeverity
+  state             String
+  createdById       String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy         User               @relation("RcaCreator", fields: [createdById], references: [id])
+  reviewAssignments ReviewAssignment[]
+  sections          RcaSection[]
+  attachments       Attachment[]
+  comments          Comment[]
+
+  @@index([projectId, state])
+}
+
+model RcaSection {
+  id        String            @id @default(cuid())
+  rcaId     String
+  kind      String
+  title     String
+  content   String
+  position  Int
+  rca       RootCauseAnalysis @relation(fields: [rcaId], references: [id], onDelete: Cascade)
+
+  @@unique([rcaId, kind])
+  @@unique([rcaId, position])
+}
+
+model ReviewAssignment {
+  id          String                 @id @default(cuid())
+  rcaId       String
+  reviewerId  String
+  status      ReviewAssignmentStatus @default(ASSIGNED)
+  assignedAt  DateTime               @default(now())
+  completedAt DateTime?
+  decision    ReviewDecision?
+  comment     String?
+  rca         RootCauseAnalysis      @relation(fields: [rcaId], references: [id], onDelete: Cascade)
+  reviewer    User                   @relation("Reviewer", fields: [reviewerId], references: [id])
+
+  @@unique([rcaId, reviewerId])
+  @@index([reviewerId, status])
+}
+
+model Notification {
+  id               String             @id @default(cuid())
+  recipientId      String
+  type             String
+  title            String
+  body             String
+  deduplicationKey String             @unique
+  status           NotificationStatus @default(PENDING)
+  readAt           DateTime?
+  createdAt        DateTime           @default(now())
+  deliveredAt      DateTime?
+  recipient        User               @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  deliveries       NotificationDelivery[]
+
+  @@index([recipientId, readAt, createdAt])
+}
+
+model NotificationDelivery {
+  id                String              @id @default(cuid())
+  notificationId    String
+  channel           NotificationChannel
+  status            DeliveryStatus      @default(PENDING)
+  providerMessageId String?
+  error             String?
+  attemptedAt       DateTime?
+  deliveredAt       DateTime?
+  notification      Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([status, attemptedAt])
+}
+
+model Attachment {
+  id          String             @id @default(cuid())
+  taskId      String?
+  rcaId       String?
+  storageKey  String             @unique
+  fileName    String
+  contentType String
+  sizeBytes   Int
+  createdAt   DateTime           @default(now())
+  task        Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  rca         RootCauseAnalysis? @relation(fields: [rcaId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([rcaId])
+}
+
+model Comment {
+  id        String             @id @default(cuid())
+  taskId    String?
+  rcaId     String?
+  authorId  String
+  body      String
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  task      Task?              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  rca       RootCauseAnalysis? @relation(fields: [rcaId], references: [id], onDelete: Cascade)
+  author    User               @relation(fields: [authorId], references: [id])
+  mentions  CommentMention[]
+
+  @@index([taskId, createdAt])
+  @@index([rcaId, createdAt])
+}
+
+model CommentMention {
+  commentId String
+  userId    String
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([commentId, userId])
+  @@index([userId])
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  type        String
+  aggregateId String
+  payload     Json
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([processedAt, createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  actor        User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId, createdAt])
+  @@index([actorId, createdAt])
+}
