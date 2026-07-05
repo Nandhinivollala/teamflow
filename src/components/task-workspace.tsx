@@ -38,16 +38,22 @@ export function TaskWorkspace({
   tasks,
   viewer,
   members,
+  initialCreate = false,
+  initialEditingTaskId,
 }: {
   tasks: TaskWorkspaceItem[];
   viewer: { name: string; initials: string; role: string };
   members: { id: string; name: string }[];
+  initialCreate?: boolean;
+  initialEditingTaskId?: string;
 }) {
   const [view, setView] = useState<View>("board");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Task["status"] | "ALL">("ALL");
-  const [showCreate, setShowCreate] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [showCreate, setShowCreate] = useState(initialCreate);
+  const [editingTask, setEditingTask] = useState<Task | null>(
+    tasks.find((task) => task.id === initialEditingTaskId) ?? null,
+  );
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -83,7 +89,7 @@ export function TaskWorkspace({
           <Link href="/reports"><MiniIcon>⌁</MiniIcon>Reports</Link>
         </nav>
         <div className="sidebar-bottom">
-          <a href="#"><MiniIcon>♙</MiniIcon>People</a>
+          <Link href="/settings"><MiniIcon>♙</MiniIcon>People</Link>
           <Link href="/settings"><MiniIcon>⚙</MiniIcon>Project settings</Link>
           <div className="user-card"><span className="avatar">{viewer.initials}</span><span><b>{viewer.name}</b><small>{viewer.role}</small></span><form action={logoutAction}><button type="submit" aria-label="Sign out">↪</button></form></div>
         </div>
@@ -91,9 +97,9 @@ export function TaskWorkspace({
 
       <main className="main">
         <header>
-          <div className="search task-global-search">⌕ <span>Search TeamFlow</span><kbd>⌘ K</kbd></div>
+          <Link className="search task-global-search" href="/tasks">⌕ <span>Search TeamFlow</span><kbd>Ctrl K</kbd></Link>
           <ThemeToggle />
-          <button className="icon-button notification-button" aria-label="Notifications">♢<span className="dot" /></button>
+          <Link className="icon-button notification-button notification-link" href="/notifications" aria-label="Notifications">♢</Link>
           <button className="create" onClick={() => setShowCreate(true)}>＋ Create task</button>
         </header>
 
@@ -121,7 +127,7 @@ export function TaskWorkspace({
 
           <div className="workflow-note"><b>Confirmed workflow.</b> Work moves through To do → In progress → In review → Done, with Blocked, Cancelled, reopen, and restore paths.</div>
 
-          {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} />}
+          {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} onCreate={() => setShowCreate(true)} />}
           {view === "list" && <List tasks={filtered} />}
           {view === "calendar" && <Calendar tasks={filtered} />}
         </div>
@@ -191,15 +197,15 @@ function Priority({ value }: { value: Task["priority"] }) {
   return <span className={`priority priority-${value.toLowerCase()}`}>{value}</span>;
 }
 
-function Board({ tasks, onEdit }: { tasks: Task[]; onEdit: (task: Task) => void }) {
+function Board({ tasks, onEdit, onCreate }: { tasks: Task[]; onEdit: (task: Task) => void; onCreate: () => void }) {
   return (
     <div className="kanban">
       {statuses.map((status) => (
         <section className="kanban-column" key={status}>
-          <div className="column-title"><span className={`status-dot status-${status.replaceAll(" ", "-").toLowerCase()}`} /><b>{status}</b><span>{tasks.filter((task) => task.status === status).length}</span><button aria-label={`${status} options`}>•••</button></div>
+          <div className="column-title"><span className={`status-dot status-${status.replaceAll(" ", "-").toLowerCase()}`} /><b>{status}</b><span>{tasks.filter((task) => task.status === status).length}</span></div>
           <div className="kanban-cards">
             {tasks.filter((task) => task.status === status).map((task) => <TaskCard task={task} onEdit={onEdit} key={task.key} />)}
-            <button className="add-task">＋ Add task</button>
+            <button className="add-task" onClick={onCreate}>＋ Add task</button>
           </div>
         </section>
       ))}
@@ -234,15 +240,32 @@ function List({ tasks }: { tasks: Task[] }) {
 }
 
 function Calendar({ tasks }: { tasks: Task[] }) {
+  const [month, setMonth] = useState(() => new Date(Date.UTC(2026, 6, 1)));
+  const year = month.getUTCFullYear();
+  const monthIndex = month.getUTCMonth();
+  const firstWeekday = (new Date(Date.UTC(year, monthIndex, 1)).getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  const cells = Array.from({ length: 42 }, (_, index) => index - firstWeekday + 1);
+  const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(month);
+
   return (
     <div className="calendar panel">
-      <div className="calendar-title"><button>‹</button><h2>July 2026</h2><button>›</button><span>Today</span></div>
+      <div className="calendar-title">
+        <button onClick={() => setMonth(new Date(Date.UTC(year, monthIndex - 1, 1)))} aria-label="Previous month">‹</button>
+        <h2>{monthLabel}</h2>
+        <button onClick={() => setMonth(new Date(Date.UTC(year, monthIndex + 1, 1)))} aria-label="Next month">›</button>
+        <button className="calendar-today" onClick={() => setMonth(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)))}>Today</button>
+      </div>
       <div className="calendar-grid">
         {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((day) => <b className="calendar-day-name" key={day}>{day}</b>)}
-        {Array.from({ length: 35 }, (_, index) => {
-          const day = index - 1;
-          const dayTasks = tasks.filter((task) => task.dueDay === day);
-          return <div className={`calendar-day ${day === 5 ? "today" : ""}`} key={index}><span>{day > 0 && day <= 31 ? day : ""}</span>{dayTasks.map((task) => <small key={task.key}>{task.key} · {task.title}</small>)}</div>;
+        {cells.map((day, index) => {
+          const validDay = day > 0 && day <= daysInMonth;
+          const dateKey = validDay
+            ? `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+            : "";
+          const dayTasks = tasks.filter((task) => task.dueIso === dateKey);
+          const today = dateKey === new Date().toISOString().slice(0, 10);
+          return <div className={`calendar-day ${today ? "today" : ""}`} key={index}><span>{validDay ? day : ""}</span>{dayTasks.map((task) => <small key={task.key}>{task.key} · {task.title}</small>)}</div>;
         })}
       </div>
     </div>

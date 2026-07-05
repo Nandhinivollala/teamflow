@@ -19,7 +19,12 @@ function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 }
 
-export default async function TasksPage() {
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ create?: string; edit?: string }>;
+}) {
+  const query = await searchParams;
   const user = await requireUser();
   const membership = user.memberships.find(({ project }) => project.key === "ENG");
   if (!membership && user.systemRole !== "ADMIN") notFound();
@@ -97,6 +102,8 @@ export default async function TasksPage() {
   return (
     <TaskWorkspace
       tasks={tasks}
+      initialCreate={query.create === "1"}
+      initialEditingTaskId={query.edit}
       members={(await prisma.projectMembership.findMany({
         where: { project: { key: "ENG" } },
         include: { user: true },
