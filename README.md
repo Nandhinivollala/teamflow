@@ -8,9 +8,9 @@ TeamFlow is a collaboration workspace for engineering delivery, incident investi
 - Kanban, list, and calendar task views with search, status filtering, and filter-scoped CSV export
 - PostgreSQL-backed task reads with live dependency and assignee-capacity warnings
 - Server-authorized task creation with transactional project association, audit entry, and outbox event
-- Authorized task title, priority, and due-date editing with transactional audit/outbox records
+- Authorized task title, priority, due-date, workflow, and assignee editing with transactional audit/outbox records
 - Same-project multi-dependency editing with non-blocking conflict visibility
-- PostgreSQL-backed RCA review screen with structured sections, assigned reviewers, mandatory comments, and approval/rejection decisions
+- PostgreSQL-backed RCA review screen with structured sections, reviewer reassignment, mandatory comments, and approval/rejection decisions
 - Live dashboard reporting for open, overdue, completion, pending-review, and project-progress metrics
 - Event-driven in-app task-assignment notifications with database-level deduplication
 - Project settings with manager-authorized membership and role administration
@@ -22,10 +22,9 @@ TeamFlow is a collaboration workspace for engineering delivery, incident investi
 - RCA review policy requiring comments, every assigned decision, and unanimous approval before closure
 - Deduplicated in-app/email delivery policy with email opt-out and no silent retry
 - PostgreSQL migrations and idempotent foundation seed
-- Object-storage, email-provider, and domain-event boundaries
-- Thirteen passing domain-policy tests using Node's built-in test runner
-
-Exact task statuses/transitions and unavailable-reviewer handling remain intentionally unimplemented because neither supplied source defines them. See [docs/requirements-gap.md](docs/requirements-gap.md).
+- Authenticated task-photo uploads using local development storage, image allowlisting, and a 1 MiB limit
+- Resend email-provider adapter and an explicit pending-delivery dispatcher
+- Eighteen passing domain-policy tests using Node's built-in test runner
 
 ## Prerequisites
 
@@ -54,8 +53,9 @@ Open `http://localhost:3000`.
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `AUTH_SECRET` | When auth is enabled | Session signing |
-| `OBJECT_STORAGE_*` | When attachments are enabled | S3-compatible storage adapter |
-| `EMAIL_PROVIDER_API_KEY` | When email is enabled | Email adapter |
+| `MAX_IMAGE_UPLOAD_BYTES` | No | Image limit; defaults to 1 MiB |
+| `RESEND_API_KEY` | For external email | Resend sending-access API key |
+| `EMAIL_FROM` | For external email | Sender on a verified Resend domain |
 
 Never commit `.env` or provider credentials.
 
@@ -74,13 +74,15 @@ See [docs/source-reconciliation.md](docs/source-reconciliation.md) for the rules
 - RCA review authority comes from an explicit review assignment.
 - Task dependency and overload findings warn without blocking a save.
 - Every assigned reviewer must decide and comment; only unanimous approval permits RCA closure.
-- Authentication provider, exact workflow states, transition rules, and unavailable-reviewer handling remain pending confirmation.
+- Tasks use To do, In progress, In review, Blocked, Done, and Cancelled with controlled reopen/restore paths.
+- A Project Manager may reassign a pending review to another project member or leave it without a replacement.
+- Task attachments are photos only and must be no larger than 1 MiB.
 
 ## Known limitations
 
-- Dashboard metrics remain demonstration data; the Tasks workspace reads seeded records from PostgreSQL.
-- Task status transitions remain intentionally unwired pending the final transition policy.
 - Authentication uses local credentials and signed HTTP-only sessions; external identity-provider integration is not implemented.
+- External email requires a Resend account, verified domain, API key, sender address, and real recipient addresses; seeded `.local` emails cannot receive mail.
+- Uploaded images use ignored local disk storage in development; production should replace this adapter with durable object storage.
 - The local PostgreSQL migrations and seed have been executed successfully.
 - The assignee-capacity threshold must be supplied by project configuration because the source defines the warning but not the overload threshold.
 - The non-dashboard Figma screens still need manual visual review.
@@ -94,4 +96,5 @@ pnpm test:domain
 pnpm db:generate
 pnpm db:migrate
 pnpm db:seed
+pnpm notifications:dispatch
 ```

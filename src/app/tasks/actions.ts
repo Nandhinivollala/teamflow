@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { extractMentionHandles } from "@/modules/comments/mentions";
+import { localObjectStorage } from "@/modules/files/local-storage";
+import { canTransitionTask, isTaskStatus } from "@/modules/task/transitions";
 
 const priorities = new Set(["High", "Medium", "Low"]);
 
@@ -70,7 +73,10 @@ export async function createTaskAction(formData: FormData) {
         status: "DELIVERED",
         deliveredAt: new Date(),
         deliveries: {
-          create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+          create: [
+            { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+            ...(user.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
+          ],
         },
       },
     });
@@ -85,6 +91,8 @@ export async function updateTaskAction(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const priorityValue = String(formData.get("priority") ?? "Medium");
   const dueValue = String(formData.get("dueAt") ?? "");
+  const statusValue = String(formData.get("status") ?? "");
+  const assigneeId = String(formData.get("assigneeId") ?? "") || null;
   const requestedBlockerIds = [
     ...new Set(formData.getAll("blockingTaskIds").map(String).filter(Boolean)),
   ].filter((id) => id !== taskId);
@@ -110,12 +118,21 @@ export async function updateTaskAction(formData: FormData) {
   if (!task || !canUpdate) {
     throw new Error("You do not have permission to update this task.");
   }
+  if (!isTaskStatus(task.status) || !isTaskStatus(statusValue) || !canTransitionTask(task.status, statusValue)) {
+    throw new Error(`Task cannot move from ${task.status} to ${statusValue}.`);
+  }
 
   const priority = priorities.has(priorityValue) ? priorityValue : "Medium";
   const dueAt = dueValue ? new Date(`${dueValue}T12:00:00.000Z`) : null;
   if (dueAt && Number.isNaN(dueAt.getTime())) throw new Error("The due date is invalid.");
 
   const projectIds = task.projects.map(({ projectId }) => projectId);
+  if (assigneeId) {
+    const assigneeMembership = await prisma.projectMembership.findFirst({
+      where: { userId: assigneeId, projectId: { in: projectIds } },
+    });
+    if (!assigneeMembership) throw new Error("The assignee must be a member of this project.");
+  }
   const validBlockers = requestedBlockerIds.length === 0
     ? []
     : await prisma.task.findMany({
@@ -132,7 +149,7 @@ export async function updateTaskAction(formData: FormData) {
   await prisma.$transaction(async (transaction) => {
     const updated = await transaction.task.update({
       where: { id: taskId },
-      data: { title, priority, dueAt },
+      data: { title, priority, dueAt, status: statusValue, assigneeId },
     });
     await transaction.auditLog.create({
       data: {
@@ -140,7 +157,15 @@ export async function updateTaskAction(formData: FormData) {
         action: "TASK_UPDATED",
         resourceType: "Task",
         resourceId: taskId,
-        metadata: { title: updated.title, priority: updated.priority, dueAt: updated.dueAt },
+        metadata: {
+          title: updated.title,
+          priority: updated.priority,
+          dueAt: updated.dueAt,
+          previousStatus: task.status,
+          status: updated.status,
+          previousAssigneeId: task.assigneeId,
+          assigneeId: updated.assigneeId,
+        },
       },
     });
     await transaction.taskDependency.deleteMany({ where: { blockedTaskId: taskId } });
@@ -159,8 +184,84 @@ export async function updateTaskAction(formData: FormData) {
         payload: { taskId, actorId: user.id, blockingTaskIds: requestedBlockerIds },
       },
     });
+    if (assigneeId && assigneeId !== task.assigneeId) {
+      const recipient = await transaction.user.findUniqueOrThrow({ where: { id: assigneeId } });
+      await transaction.notification.create({
+        data: {
+          recipientId: assigneeId,
+          type: "TASK_ASSIGNED",
+          title: `You were assigned TF-${task.sequence}`,
+          body: updated.title,
+          deduplicationKey: `${task.id}:${assigneeId}:TASK_REASSIGNED:${Date.now()}`,
+          status: "DELIVERED",
+          deliveredAt: new Date(),
+          deliveries: {
+            create: [
+              { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+              ...(recipient.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
+            ],
+          },
+        },
+      });
+    }
   });
 
+  revalidatePath("/tasks");
+}
+
+const imageTypes = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
+
+export async function uploadTaskPhotoAction(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get("taskId") ?? "");
+  const photo = formData.get("photo");
+  const maxBytes = Number(process.env.MAX_IMAGE_UPLOAD_BYTES ?? 1_048_576);
+  if (!(photo instanceof File) || !taskId || photo.size === 0) throw new Error("Choose a photo to upload.");
+  const extension = imageTypes.get(photo.type);
+  if (!extension) throw new Error("Only JPEG, PNG, WebP, and GIF images are allowed.");
+  if (photo.size > maxBytes) throw new Error("The photo must be 1 MiB or smaller.");
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { projects: { include: { project: { include: { memberships: { where: { userId: user.id } } } } } } },
+  });
+  if (!task || (user.systemRole !== "ADMIN" && !task.projects.some(({ project }) => project.memberships.length))) {
+    throw new Error("You do not have access to this task.");
+  }
+
+  const storageKey = `${taskId}/${randomUUID()}.${extension}`;
+  const body = new Uint8Array(await photo.arrayBuffer());
+  await localObjectStorage.put(storageKey, body, photo.type);
+  try {
+    await prisma.$transaction([
+      prisma.attachment.create({
+        data: {
+          taskId,
+          storageKey,
+          fileName: photo.name.slice(0, 255),
+          contentType: photo.type,
+          sizeBytes: photo.size,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "TASK_PHOTO_UPLOADED",
+          resourceType: "Task",
+          resourceId: taskId,
+          metadata: { storageKey, fileName: photo.name, sizeBytes: photo.size },
+        },
+      }),
+    ]);
+  } catch (error) {
+    await localObjectStorage.delete(storageKey);
+    throw error;
+  }
   revalidatePath("/tasks");
 }
 
@@ -182,7 +283,7 @@ export async function addTaskCommentAction(formData: FormData) {
   const candidates = handles.length
     ? await prisma.user.findMany({
         where: { memberships: { some: { projectId: { in: task.projects.map(({ projectId }) => projectId) } } } },
-        select: { id: true, email: true, name: true },
+        select: { id: true, email: true, name: true, emailNotificationsEnabled: true },
       })
     : [];
   const mentioned = candidates.filter((candidate) => {
@@ -213,7 +314,12 @@ export async function addTaskCommentAction(formData: FormData) {
           deduplicationKey: `${comment.id}:${recipient.id}:COMMENT_MENTIONED`,
           status: "DELIVERED",
           deliveredAt: new Date(),
-          deliveries: { create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() } },
+          deliveries: {
+            create: [
+              { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+              ...(recipient.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
+            ],
+          },
         },
       });
     }

@@ -5,14 +5,14 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { exportFilteredTasksCsv } from "@/modules/reporting/csv";
 import { logoutAction } from "@/app/login/actions";
-import { addTaskCommentAction, createTaskAction, updateTaskAction } from "@/app/tasks/actions";
+import { addTaskCommentAction, createTaskAction, updateTaskAction, uploadTaskPhotoAction } from "@/app/tasks/actions";
 
 type View = "board" | "list" | "calendar";
 export type TaskWorkspaceItem = {
   id: string;
   key: string;
   title: string;
-  status: "TO DO" | "IN PROGRESS" | "IN REVIEW" | "DONE";
+  status: "TO DO" | "IN PROGRESS" | "IN REVIEW" | "BLOCKED" | "DONE" | "CANCELLED";
   priority: "High" | "Medium" | "Low";
   assigneeId: string;
   assignee: string;
@@ -22,12 +22,13 @@ export type TaskWorkspaceItem = {
   projectIds: string[];
   blockingTaskIds: string[];
   comments: { id: string; author: string; body: string; createdAt: string }[];
+  attachments: { id: string; fileName: string; sizeLabel: string }[];
   warning?: string;
 };
 
 type Task = TaskWorkspaceItem;
 
-const statuses: Task["status"][] = ["TO DO", "IN PROGRESS", "IN REVIEW", "DONE"];
+const statuses: Task["status"][] = ["TO DO", "IN PROGRESS", "IN REVIEW", "BLOCKED", "DONE", "CANCELLED"];
 
 function MiniIcon({ children }: { children: React.ReactNode }) {
   return <span className="mini-icon" aria-hidden="true">{children}</span>;
@@ -36,9 +37,11 @@ function MiniIcon({ children }: { children: React.ReactNode }) {
 export function TaskWorkspace({
   tasks,
   viewer,
+  members,
 }: {
   tasks: TaskWorkspaceItem[];
   viewer: { name: string; initials: string; role: string };
+  members: { id: string; name: string }[];
 }) {
   const [view, setView] = useState<View>("board");
   const [search, setSearch] = useState("");
@@ -116,7 +119,7 @@ export function TaskWorkspace({
             <span className="result-count">{filtered.length} results</span>
           </div>
 
-          <div className="workflow-note"><b>Flexible workflow preview.</b> These view labels are demonstration data; domain transitions remain configurable until the final status policy is confirmed.</div>
+          <div className="workflow-note"><b>Confirmed workflow.</b> Work moves through To do → In progress → In review → Done, with Blocked, Cancelled, reopen, and restore paths.</div>
 
           {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} />}
           {view === "list" && <List tasks={filtered} />}
@@ -134,6 +137,10 @@ export function TaskWorkspace({
                 <label>Priority<select name="priority" defaultValue={editingTask?.priority ?? "Medium"}><option>High</option><option>Medium</option><option>Low</option></select></label>
                 <label>Due date<input name="dueAt" type="date" defaultValue={editingTask?.dueIso ?? ""} /></label>
               </div>
+              {editingTask && <div className="modal-fields">
+                <label>Status<select name="status" defaultValue={editingTask.status}>{statuses.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label>Assignee<select name="assigneeId" defaultValue={editingTask.assigneeId}><option value="">Unassigned</option>{members.map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label>
+              </div>}
               {editingTask && (
                 <label className="dependency-field">Blocked by
                   <select name="blockingTaskIds" multiple size={Math.min(4, Math.max(2, tasks.length - 1))} defaultValue={editingTask.blockingTaskIds}>
@@ -144,9 +151,21 @@ export function TaskWorkspace({
                   <small>Use Ctrl-click to select or remove multiple blockers. Conflicts produce warnings without preventing the save.</small>
                 </label>
               )}
-              <div className="modal-note">{editingTask ? "Workflow status is unchanged by this edit." : "The task will be assigned to you. Initial workflow status is configured by the server."}</div>
+              <div className="modal-note">{editingTask ? "Only valid workflow transitions are accepted. Dependencies remain advisory warnings." : "The task will be assigned to you and starts in To do."}</div>
               <div className="modal-actions"><button type="button" className="secondary" onClick={() => { setShowCreate(false); setEditingTask(null); }}>Cancel</button><button type="submit" className="create">{editingTask ? "Save changes" : "Create task"}</button></div>
             </form>
+            {editingTask && (
+              <section className="task-comments task-attachments">
+                <h3>Photos <span>{editingTask.attachments.length}</span></h3>
+                {editingTask.attachments.map((attachment) => <p key={attachment.id}><a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a><small>{attachment.sizeLabel}</small></p>)}
+                <form action={uploadTaskPhotoAction} className="comment-form">
+                  <input type="hidden" name="taskId" value={editingTask.id} />
+                  <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required />
+                  <button className="create">Upload photo</button>
+                </form>
+                <small>JPEG, PNG, WebP, or GIF; maximum 1 MiB.</small>
+              </section>
+            )}
             {editingTask && (
               <section className="task-comments">
                 <h3>Comments <span>{editingTask.comments.length}</span></h3>

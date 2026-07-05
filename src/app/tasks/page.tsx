@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: "Plan and track engineering work across views.",
 };
 
-const statuses = new Set<TaskWorkspaceItem["status"]>(["TO DO", "IN PROGRESS", "IN REVIEW", "DONE"]);
+const statuses = new Set<TaskWorkspaceItem["status"]>(["TO DO", "IN PROGRESS", "IN REVIEW", "BLOCKED", "DONE", "CANCELLED"]);
 const priorities = new Set<TaskWorkspaceItem["priority"]>(["High", "Medium", "Low"]);
 
 function initials(name: string) {
@@ -31,6 +31,7 @@ export default async function TasksPage() {
       projects: { include: { project: true } },
       blockers: { include: { blockingTask: true } },
       comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
+      attachments: { orderBy: { createdAt: "asc" } },
     },
     orderBy: [{ dueAt: "asc" }, { sequence: "asc" }],
   });
@@ -84,6 +85,11 @@ export default async function TasksPage() {
         body: comment.body,
         createdAt: comment.createdAt.toLocaleString("en-IN"),
       })),
+      attachments: task.attachments.map((attachment) => ({
+        id: attachment.id,
+        fileName: attachment.fileName,
+        sizeLabel: `${Math.ceil(attachment.sizeBytes / 1024)} KB`,
+      })),
       warning,
     };
   });
@@ -91,6 +97,11 @@ export default async function TasksPage() {
   return (
     <TaskWorkspace
       tasks={tasks}
+      members={(await prisma.projectMembership.findMany({
+        where: { project: { key: "ENG" } },
+        include: { user: true },
+        orderBy: { user: { name: "asc" } },
+      })).map(({ user: member }) => ({ id: member.id, name: member.name }))}
       viewer={{
         name: user.name,
         initials: initials(user.name),
