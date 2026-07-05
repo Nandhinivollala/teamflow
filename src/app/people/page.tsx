@@ -71,7 +71,6 @@ export default async function PeoplePage() {
                 <label>Role<select name="role"><option value="MEMBER">Member</option><option value="PROJECT_MANAGER">Project Manager</option></select></label>
                 <button className="create">Add member</button>
               </form>
-              <p className="settings-hint">Temporary password for new accounts: <b>Demo1234!</b></p>
             </section>
           )}
           <section className="panel settings-card">
