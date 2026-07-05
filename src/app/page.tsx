@@ -164,7 +164,6 @@ export default async function Home() {
             <section className="panel activity-panel">
               <div className="panel-title">
                 <div><h2>Recent activity</h2><p>Across your projects</p></div>
-                <Link href="/notifications" aria-label="View notification activity">•••</Link>
               </div>
               <div className="activity-list">
                 {recentActivity.map((item, index) => (
