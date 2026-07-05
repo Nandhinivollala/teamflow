@@ -28,6 +28,9 @@ export default async function TasksPage({
   const user = await requireUser();
   const membership = user.memberships.find(({ project }) => project.key === "ENG");
   if (!membership && user.systemRole !== "ADMIN") notFound();
+  const projectName = membership?.project.name
+    ?? (await prisma.project.findUnique({ where: { key: "ENG" }, select: { name: true } }))?.name
+    ?? "Engineering";
 
   const records = await prisma.task.findMany({
     where: { projects: { some: { project: { key: "ENG" } } } },
@@ -102,6 +105,7 @@ export default async function TasksPage({
   return (
     <TaskWorkspace
       tasks={tasks}
+      projectName={projectName}
       initialCreate={query.create === "1"}
       initialEditingTaskId={query.edit}
       members={(await prisma.projectMembership.findMany({

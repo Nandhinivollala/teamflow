@@ -88,7 +88,7 @@ export default async function Home() {
         <Link className="brand" href="/"><span className="brand-mark">T</span><span>TeamFlow</span></Link>
         <div className="project-switcher">
           <span className="project-logo">E</span>
-          <span><small>Workspace</small>{project?.name ?? "Engineering"}</span>
+          <span><small>Current project</small>{project?.name ?? "Engineering"}</span>
         </div>
         <nav aria-label="Primary navigation">
           <Link className="active" href="/"><Icon name="grid" />Dashboard</Link>

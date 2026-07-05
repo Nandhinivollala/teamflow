@@ -37,12 +37,14 @@ function MiniIcon({ children }: { children: React.ReactNode }) {
 
 export function TaskWorkspace({
   tasks,
+  projectName,
   viewer,
   members,
   initialCreate = false,
   initialEditingTaskId,
 }: {
   tasks: TaskWorkspaceItem[];
+  projectName: string;
   viewer: { name: string; initials: string; role: string };
   members: { id: string; name: string }[];
   initialCreate?: boolean;
@@ -89,7 +91,10 @@ export function TaskWorkspace({
     <div className="app-shell task-app">
       <aside className="sidebar">
         <Link className="brand" href="/"><span className="brand-mark">T</span><span>TeamFlow</span></Link>
-        <div className="project-switcher"><span className="project-logo">E</span><span><small>Workspace</small>Engineering</span><b>⌄</b></div>
+        <div className="project-switcher" aria-label={`Current project: ${projectName}`}>
+          <span className="project-logo">{projectName.slice(0, 1).toUpperCase()}</span>
+          <span><small>Current project</small>{projectName}</span>
+        </div>
         <nav aria-label="Primary navigation">
           <Link href="/"><MiniIcon>▦</MiniIcon>Dashboard</Link>
           <Link className="active" href="/tasks"><MiniIcon>✓</MiniIcon>Tasks<span className="nav-count">{tasks.length}</span></Link>
@@ -113,7 +118,7 @@ export function TaskWorkspace({
 
         <div className="task-content">
           <div className="task-heading">
-            <div><p className="eyebrow">ENGINEERING / TASKS</p><h1>Tasks</h1><p>Plan, prioritize, and follow work from one shared source.</p></div>
+            <div><p className="eyebrow">{projectName.toUpperCase()} / TASKS</p><h1>Tasks</h1><p>Plan, prioritize, and follow work from one shared source.</p></div>
             <div className="heading-actions"><button className="secondary" onClick={downloadCsv}>⇩ Export CSV</button><button className="create" onClick={() => setShowCreate(true)}>＋ Create task</button></div>
           </div>
 
