@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { exportFilteredTasksCsv } from "@/modules/reporting/csv";
@@ -58,14 +59,18 @@ export function TaskWorkspace({
   const [showCreate, setShowCreate] = useState(initialCreate);
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [taskFormError, setTaskFormError] = useState("");
-  const [editingTask, setEditingTask] = useState<Task | null>(
-    tasks.find((task) => task.id === initialEditingTaskId) ?? null,
-  );
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoUploadMessage, setPhotoUploadMessage] = useState("");
+  const [photoUploadError, setPhotoUploadError] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(initialEditingTaskId ?? null);
+  const editingTask = tasks.find((task) => task.id === editingTaskId) ?? null;
 
   function closeTaskModal() {
     setShowCreate(false);
-    setEditingTask(null);
+    setEditingTaskId(null);
     setTaskFormError("");
+    setPhotoUploadMessage("");
+    setPhotoUploadError("");
     if (initialCreate || initialEditingTaskId) router.replace("/tasks", { scroll: false });
   }
 
@@ -76,7 +81,9 @@ export function TaskWorkspace({
 
   function openTask(task: Task) {
     setTaskFormError("");
-    setEditingTask(task);
+    setPhotoUploadMessage("");
+    setPhotoUploadError("");
+    setEditingTaskId(task.id);
   }
 
   async function saveTask(formData: FormData) {
@@ -94,6 +101,21 @@ export function TaskWorkspace({
       setTaskFormError(error instanceof Error ? error.message : "The task could not be saved.");
     } finally {
       setIsSavingTask(false);
+    }
+  }
+
+  async function uploadPhoto(formData: FormData) {
+    setIsUploadingPhoto(true);
+    setPhotoUploadMessage("");
+    setPhotoUploadError("");
+    try {
+      await uploadTaskPhotoAction(formData);
+      setPhotoUploadMessage("Photo uploaded successfully. It is stored locally and shown below.");
+      router.refresh();
+    } catch (error) {
+      setPhotoUploadError(error instanceof Error ? error.message : "The photo could not be uploaded.");
+    } finally {
+      setIsUploadingPhoto(false);
     }
   }
 
@@ -214,12 +236,25 @@ export function TaskWorkspace({
             {editingTask && (
               <section className="task-comments task-attachments">
                 <h3>Photos <span>{editingTask.attachments.length}</span></h3>
-                {editingTask.attachments.map((attachment) => <p key={attachment.id}><a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a><small>{attachment.sizeLabel}</small></p>)}
-                <form action={uploadTaskPhotoAction} className="comment-form">
+                {editingTask.attachments.length > 0 ? (
+                  <div className="photo-grid">
+                    {editingTask.attachments.map((attachment) => (
+                      <figure key={attachment.id}>
+                        <a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">
+                          <Image src={`/api/attachments/${attachment.id}`} alt={attachment.fileName} width={320} height={180} unoptimized />
+                        </a>
+                        <figcaption><b>{attachment.fileName}</b><span>{attachment.sizeLabel}</span><a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">Open full image</a></figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                ) : <p className="no-photos">No photos uploaded yet.</p>}
+                <form action={uploadPhoto} className="comment-form">
                   <input type="hidden" name="taskId" value={editingTask.id} />
-                  <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required />
-                  <button className="create">Upload photo</button>
+                  <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required disabled={isUploadingPhoto} />
+                  <button className="create" disabled={isUploadingPhoto}>{isUploadingPhoto ? "Uploading…" : "Upload photo"}</button>
                 </form>
+                {photoUploadMessage && <p className="upload-success" role="status">{photoUploadMessage}</p>}
+                {photoUploadError && <p className="task-form-error" role="alert">{photoUploadError}</p>}
                 <small>JPEG, PNG, WebP, or GIF; maximum 1 MiB.</small>
               </section>
             )}
