@@ -139,6 +139,7 @@ model Task {
   dependents  TaskDependency[] @relation("BlockingTask")
   attachments Attachment[]
   comments    Comment[]
+  rca         RootCauseAnalysis?
 
   @@index([status, dueAt])
   @@index([assigneeId, status])
@@ -169,6 +170,7 @@ model TaskDependency {
 model RootCauseAnalysis {
   id                String             @id @default(cuid())
   projectId         String
+  taskId            String?            @unique
   title             String
   summary           String?
   severity          RcaSeverity
@@ -177,6 +179,7 @@ model RootCauseAnalysis {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task              Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
   createdBy         User               @relation("RcaCreator", fields: [createdById], references: [id])
   reviewAssignments ReviewAssignment[]
   sections          RcaSection[]

@@ -1,9 +1,104 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { submitReview } from "@/modules/rca/review-policy";
+
+const severities = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
+
+export async function createTaskRcaAction(formData: FormData) {
+  const user = await requireUser();
+  const taskId = String(formData.get("taskId") ?? "");
+  const title = String(formData.get("title") ?? "").trim();
+  const findings = String(formData.get("findings") ?? "").trim();
+  const reviewerId = String(formData.get("reviewerId") ?? "");
+  const severityValue = String(formData.get("severity") ?? "MEDIUM");
+  if (!taskId || title.length < 3 || title.length > 160) throw new Error("A valid RCA title is required.");
+  if (findings.length < 10 || findings.length > 6000) throw new Error("Findings must contain between 10 and 6000 characters.");
+  if (!reviewerId) throw new Error("Choose a reviewer.");
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      rca: { select: { id: true } },
+      projects: {
+        include: {
+          project: { include: { memberships: true } },
+        },
+      },
+    },
+  });
+  const project = task?.projects[0]?.project;
+  const canCreate = user.systemRole === "ADMIN"
+    || project?.memberships.some(({ userId }) => userId === user.id);
+  if (!task || !project || !canCreate) throw new Error("You do not have access to this task.");
+  if (task.status !== "IN REVIEW") throw new Error("An RCA can only be created while the task is In review.");
+  if (task.rca) throw new Error("This task already has an RCA.");
+  if (!project.memberships.some(({ userId }) => userId === reviewerId)) {
+    throw new Error("The reviewer must be a member of this project.");
+  }
+
+  const severity = severities.has(severityValue) ? severityValue as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" : "MEDIUM";
+  const rca = await prisma.$transaction(async (transaction) => {
+    const created = await transaction.rootCauseAnalysis.create({
+      data: {
+        projectId: project.id,
+        taskId: task.id,
+        title,
+        summary: `Review findings for TF-${task.sequence}: ${task.title}`,
+        severity,
+        state: "IN_REVIEW",
+        createdById: user.id,
+        sections: {
+          create: {
+            kind: "FINDINGS",
+            title: "Review findings",
+            content: findings,
+            position: 1,
+          },
+        },
+        reviewAssignments: { create: { reviewerId } },
+      },
+    });
+    await transaction.notification.create({
+      data: {
+        recipientId: reviewerId,
+        type: "RCA_REVIEW_ASSIGNED",
+        title: `RCA review assigned for TF-${task.sequence}`,
+        body: title,
+        deduplicationKey: `${created.id}:${reviewerId}:RCA_REVIEW_ASSIGNED`,
+        status: "DELIVERED",
+        deliveredAt: new Date(),
+        deliveries: {
+          create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+        },
+      },
+    });
+    await transaction.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "RCA_CREATED",
+        resourceType: "RootCauseAnalysis",
+        resourceId: created.id,
+        metadata: { taskId: task.id, reviewerId, severity },
+      },
+    });
+    await transaction.outboxEvent.create({
+      data: {
+        type: "RCA_SUBMITTED",
+        aggregateId: created.id,
+        payload: { rcaId: created.id, taskId: task.id, reviewerId, actorId: user.id },
+      },
+    });
+    return created;
+  });
+
+  revalidatePath("/tasks");
+  revalidatePath("/rcas");
+  redirect(`/rcas#rca-${rca.id}`);
+}
 
 export async function submitReviewAction(formData: FormData) {
   const user = await requireUser();

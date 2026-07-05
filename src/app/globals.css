@@ -116,6 +116,7 @@ header { height:66px; padding:0 34px; background:white; border-bottom:1px solid 
 }
 .rca-page { min-height:100vh; padding:38px clamp(20px,5vw,72px); background:var(--background); }
 .rca-top { max-width:1100px; margin:0 auto 24px; }.rca-top>a { display:inline-block; margin-bottom:25px; color:#6557dc; font-weight:700; }.rca-top h1 { margin:6px 0; font-size:29px; }.rca-top p { color:var(--muted); }
+.rca-create { max-width:1100px; margin:0 auto 22px; padding:24px; }.rca-create>div h2{margin:7px 0}.rca-create>div>p:last-child{margin:0;color:var(--muted)}.rca-create form{display:grid;grid-template-columns:1.5fr .7fr 1fr;gap:16px;margin-top:22px}.rca-create label{font-size:10px;font-weight:700}.rca-create input,.rca-create select,.rca-create textarea{display:block;width:100%;margin-top:7px;padding:11px;border:1px solid var(--border);border-radius:7px;background:white;font:inherit}.rca-create input,.rca-create select{height:42px}.rca-create textarea{min-height:145px;resize:vertical}.rca-create .rca-findings,.rca-create-actions{grid-column:1/-1}.rca-create-actions{display:flex;justify-content:flex-end;gap:9px}.rca-message{max-width:1100px;margin:0 auto 20px;padding:12px 15px;border:1px solid #e4d8a8;border-radius:7px;background:#fff9e8;color:#8b6817}.rca-task-link{display:inline-block;margin-left:9px;color:#6557dc;font-size:10px;font-weight:750}
 .rca-record { max-width:1100px; margin:0 auto 22px; }.rca-record>header { padding:22px; display:flex; justify-content:space-between; gap:20px; border-bottom:1px solid var(--border); }.rca-record h2 { margin:8px 0 6px; }.rca-record header p { margin:0; color:var(--muted); }.rca-record header>strong { align-self:flex-start; padding:7px 9px; color:#6757dd; background:#efedff; border-radius:6px; font-size:9px; }
 .severity { padding:4px 7px; border-radius:5px; font-size:8px; font-weight:800; }.severity-high,.severity-critical { color:#c44e50; background:#fff0f0; }
 .rca-sections { display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); }.rca-sections section { padding:20px; background:white; }.rca-sections h3,.review-grid h3 { margin:0 0 9px; font-size:11px; }.rca-sections p { margin:0; color:#697386; font-size:10px; line-height:1.6; }
@@ -124,7 +125,7 @@ header { height:66px; padding:0 34px; background:white; border-bottom:1px solid 
 .task-attachments p { display:flex; justify-content:space-between; gap:12px; font-size:10px; }.task-attachments a { color:#6658dc; }.task-attachments .comment-form { grid-template-columns:1fr auto; }.task-attachments input[type="file"] { height:auto; padding:8px; font-size:9px; }
 .review-form label { color:#4e586b; font-size:10px; font-weight:700; }.review-form textarea { width:100%; min-height:90px; margin-top:7px; padding:10px; border:1px solid var(--border); border-radius:7px; resize:vertical; }.review-form>div { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
 [data-theme="dark"] .rca-sections section { background:#171f31; }
-@media(max-width:720px){.rca-sections,.review-grid{grid-template-columns:1fr}.rca-record>header{display:block}.rca-record header>strong{display:inline-block;margin-top:12px}}
+@media(max-width:720px){.rca-create form,.rca-sections,.review-grid{grid-template-columns:1fr}.rca-create .rca-findings,.rca-create-actions{grid-column:auto}.rca-record>header{display:block}.rca-record header>strong{display:inline-block;margin-top:12px}}
 [data-theme="dark"] { --background:#0d1322; --foreground:#edf0f8; --muted:#9aa4b8; --border:#2c3549; }
 [data-theme="dark"] header,[data-theme="dark"] .panel,[data-theme="dark"] .metrics>a,[data-theme="dark"] .secondary,[data-theme="dark"] .icon-button,[data-theme="dark"] .panel-title select { background:#171f31; color:#edf0f8; }
 [data-theme="dark"] .search { background:#111829; border-color:#2c3549; }
@@ -162,6 +163,8 @@ header { height:66px; padding:0 34px; background:white; border-bottom:1px solid 
 .card-top { display:flex; align-items:center; color:#8a93a4; font-size:9px; font-weight:700; }
 .kanban-card h2 { min-height:34px; margin:10px 0 13px; color:#333d50; font-size:12px; line-height:1.45; }
 .task-warning { margin:-5px 0 10px; color:#b8781b; font-size:9px; }
+.task-rca-link { display:inline-flex; margin:2px 0 12px; padding:7px 10px; border:1px solid #d8d3ff; border-radius:6px; color:#6557dc; background:#f7f5ff; font-size:9px; font-weight:750; }
+.task-rca-link:hover { background:#efedff; }
 .card-bottom { display:flex; align-items:center; gap:8px; }
 .card-bottom .avatar { margin-left:auto; width:26px; height:26px; }
 .priority { display:inline-flex; align-items:center; border-radius:5px; padding:4px 7px; font-size:8px; font-weight:700; }

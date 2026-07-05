@@ -40,6 +40,7 @@ export default async function TasksPage({
       blockers: { include: { blockingTask: true } },
       comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
       attachments: { orderBy: { createdAt: "asc" } },
+      rca: { select: { id: true } },
     },
     orderBy: [{ dueAt: "asc" }, { sequence: "asc" }],
   });
@@ -98,6 +99,7 @@ export default async function TasksPage({
         fileName: attachment.fileName,
         sizeLabel: `${Math.ceil(attachment.sizeBytes / 1024)} KB`,
       })),
+      rcaId: task.rca?.id ?? null,
       warning,
     };
   });

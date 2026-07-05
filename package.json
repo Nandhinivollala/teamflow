@@ -11,6 +11,7 @@
     "test:domain": "node --test --experimental-strip-types src/modules/auth/token.test.ts src/modules/task/warnings.test.ts src/modules/task/transitions.test.ts src/modules/rca/review-policy.test.ts src/modules/notifications/policy.test.ts src/modules/comments/mentions.test.ts src/modules/reporting/csv.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed"
   },
   "dependencies": {

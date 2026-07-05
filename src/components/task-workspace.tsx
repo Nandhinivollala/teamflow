@@ -24,6 +24,7 @@ export type TaskWorkspaceItem = {
   blockingTaskIds: string[];
   comments: { id: string; author: string; body: string; createdAt: string }[];
   attachments: { id: string; fileName: string; sizeLabel: string }[];
+  rcaId: string | null;
   warning?: string;
 };
 
@@ -236,6 +237,11 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }
       <div className="card-top"><span>{task.key}</span><button onClick={() => onEdit(task)} aria-label={`Edit ${task.key}`}>✎</button></div>
       <h2>{task.title}</h2>
       {task.warning && <p className="task-warning">⚠ {task.warning}</p>}
+      {task.status === "IN REVIEW" && (
+        <Link className="task-rca-link" href={task.rcaId ? `/rcas#rca-${task.rcaId}` : `/rcas?task=${task.id}`}>
+          {task.rcaId ? "View RCA" : "＋ Add RCA"}
+        </Link>
+      )}
       <div className="card-bottom"><Priority value={task.priority} /><span className="due-date">◷ {task.due}</span><span className="avatar">{task.assignee}</span></div>
     </article>
   );
