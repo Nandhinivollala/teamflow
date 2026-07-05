@@ -60,14 +60,16 @@ export default async function SettingsPage() {
         <aside>
           {canManage && (
             <section className="panel settings-card">
-              <h2>Add existing user</h2>
-              <p>The user must already have a TeamFlow account.</p>
+              <h2>Add member</h2>
+              <p>If the email is new, TeamFlow creates a local account automatically.</p>
               <form action={addProjectMemberAction}>
                 <input type="hidden" name="projectId" value={project.id} />
+                <label>Name (new accounts)<input name="name" type="text" maxLength={100} placeholder="Member name" /></label>
                 <label>Email<input name="email" type="email" required placeholder="member@teamflow.local" /></label>
                 <label>Role<select name="role"><option value="MEMBER">Member</option><option value="PROJECT_MANAGER">Project Manager</option></select></label>
                 <button className="create">Add member</button>
               </form>
+              <p className="settings-hint">New local accounts can sign in with the temporary password <b>Demo1234!</b>.</p>
             </section>
           )}
           <section className="panel settings-card">
