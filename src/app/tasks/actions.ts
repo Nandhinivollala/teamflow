@@ -15,16 +15,20 @@ export async function createTaskAction(formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const priorityValue = String(formData.get("priority") ?? "Medium");
   const dueValue = String(formData.get("dueAt") ?? "");
+  const requestedAssigneeId = String(formData.get("assigneeId") ?? "") || user.id;
   if (title.length < 3 || title.length > 160) {
     throw new Error("Task title must contain between 3 and 160 characters.");
   }
 
   const project = await prisma.project.findUnique({
     where: { key: "ENG" },
-    include: { memberships: { where: { userId: user.id } } },
+    include: { memberships: true },
   });
-  if (!project || (user.systemRole !== "ADMIN" && project.memberships.length === 0)) {
+  if (!project || (user.systemRole !== "ADMIN" && !project.memberships.some(({ userId }) => userId === user.id))) {
     throw new Error("You do not have permission to create tasks in this project.");
+  }
+  if (!project.memberships.some(({ userId }) => userId === requestedAssigneeId)) {
+    throw new Error("The assignee must be a member of this project.");
   }
 
   const priority = priorities.has(priorityValue) ? priorityValue : "Medium";
@@ -41,7 +45,7 @@ export async function createTaskAction(formData: FormData) {
         priority,
         dueAt,
         creatorId: user.id,
-        assigneeId: user.id,
+        assigneeId: requestedAssigneeId,
         projects: { create: { projectId: project.id } },
       },
     });
@@ -52,7 +56,7 @@ export async function createTaskAction(formData: FormData) {
         action: "TASK_CREATED",
         resourceType: "Task",
         resourceId: task.id,
-        metadata: { projectId: project.id, status: task.status },
+        metadata: { projectId: project.id, status: task.status, assigneeId: requestedAssigneeId },
       },
     });
 
@@ -60,16 +64,16 @@ export async function createTaskAction(formData: FormData) {
       data: {
         type: "TASK_CREATED",
         aggregateId: task.id,
-        payload: { taskId: task.id, projectId: project.id, actorId: user.id },
+        payload: { taskId: task.id, projectId: project.id, actorId: user.id, assigneeId: requestedAssigneeId },
       },
     });
     await transaction.notification.create({
       data: {
-        recipientId: user.id,
+        recipientId: requestedAssigneeId,
         type: "TASK_ASSIGNED",
         title: `You were assigned TF-${task.sequence}`,
         body: task.title,
-        deduplicationKey: `${task.id}:${user.id}:TASK_ASSIGNED`,
+        deduplicationKey: `${task.id}:${requestedAssigneeId}:TASK_ASSIGNED`,
         status: "DELIVERED",
         deliveredAt: new Date(),
         deliveries: {

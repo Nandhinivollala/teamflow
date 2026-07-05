@@ -143,10 +143,15 @@ export function TaskWorkspace({
                 <label>Priority<select name="priority" defaultValue={editingTask?.priority ?? "Medium"}><option>High</option><option>Medium</option><option>Low</option></select></label>
                 <label>Due date<input name="dueAt" type="date" defaultValue={editingTask?.dueIso ?? ""} /></label>
               </div>
-              {editingTask && <div className="modal-fields">
-                <label>Status<select name="status" defaultValue={editingTask.status}>{statuses.map((item) => <option key={item}>{item}</option>)}</select></label>
-                <label>Assignee<select name="assigneeId" defaultValue={editingTask.assigneeId}><option value="">Unassigned</option>{members.map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label>
-              </div>}
+              <div className="modal-fields">
+                {editingTask && <label>Status<select name="status" defaultValue={editingTask.status}>{statuses.map((item) => <option key={item}>{item}</option>)}</select></label>}
+                <label>Assignee
+                  <select name="assigneeId" defaultValue={editingTask?.assigneeId ?? ""}>
+                    <option value="">{editingTask ? "Unassigned" : `Assign to me (${viewer.name})`}</option>
+                    {members.map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}
+                  </select>
+                </label>
+              </div>
               {editingTask && (
                 <label className="dependency-field">Blocked by
                   <select name="blockingTaskIds" multiple size={Math.min(4, Math.max(2, tasks.length - 1))} defaultValue={editingTask.blockingTaskIds}>
@@ -157,7 +162,7 @@ export function TaskWorkspace({
                   <small>Use Ctrl-click to select or remove multiple blockers. Conflicts produce warnings without preventing the save.</small>
                 </label>
               )}
-              <div className="modal-note">{editingTask ? "Only valid workflow transitions are accepted. Dependencies remain advisory warnings." : "The task will be assigned to you and starts in To do."}</div>
+              <div className="modal-note">{editingTask ? "Only valid workflow transitions are accepted. Dependencies remain advisory warnings." : "The selected person will receive an in-app assignment notification. The task starts in To do."}</div>
               <div className="modal-actions"><button type="button" className="secondary" onClick={() => { setShowCreate(false); setEditingTask(null); }}>Cancel</button><button type="submit" className="create">{editingTask ? "Save changes" : "Create task"}</button></div>
             </form>
             {editingTask && (
