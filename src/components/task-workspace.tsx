@@ -89,7 +89,7 @@ export function TaskWorkspace({
           <Link href="/reports"><MiniIcon>⌁</MiniIcon>Reports</Link>
         </nav>
         <div className="sidebar-bottom">
-          <Link href="/settings"><MiniIcon>♙</MiniIcon>People</Link>
+          <Link href="/people"><MiniIcon>♙</MiniIcon>People</Link>
           <Link href="/settings"><MiniIcon>⚙</MiniIcon>Project settings</Link>
           <div className="user-card"><span className="avatar">{viewer.initials}</span><span><b>{viewer.name}</b><small>{viewer.role}</small></span><form action={logoutAction}><button type="submit" aria-label="Sign out">↪</button></form></div>
         </div>

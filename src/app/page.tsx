@@ -97,7 +97,7 @@ export default async function Home() {
           <Link href="/reports"><Icon name="chart" />Reports</Link>
         </nav>
         <div className="sidebar-bottom">
-          <Link href="/settings"><Icon name="users" />People</Link>
+          <Link href="/people"><Icon name="users" />People</Link>
           <Link href="/settings"><Icon name="settings" />Project settings</Link>
           <div className="user-card">
             <span className="avatar">{initials(user.name)}</span>

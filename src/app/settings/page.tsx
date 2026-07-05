@@ -2,10 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
-import {
-  addProjectMemberAction,
-  updateProjectMemberRoleAction,
-} from "./actions";
+import { taskStatuses } from "@/modules/task/transitions";
+import { updateProjectSettingsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,69 +11,51 @@ export default async function SettingsPage() {
   const user = await requireUser();
   const membership = user.memberships.find(({ project }) => project.key === "ENG");
   if (!membership && user.systemRole !== "ADMIN") notFound();
-  const project = await prisma.project.findUnique({
-    where: { key: "ENG" },
-    include: {
-      memberships: {
-        include: { user: true },
-        orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
-      },
-    },
-  });
+  const project = await prisma.project.findUnique({ where: { key: "ENG" } });
   if (!project) notFound();
-
   const canManage = user.systemRole === "ADMIN" || membership?.role === "PROJECT_MANAGER";
 
   return (
     <main className="settings-page">
       <div className="settings-header">
         <Link href="/">← Dashboard</Link>
-        <p className="eyebrow">PROJECT ADMINISTRATION</p>
-        <h1>{project.name}</h1>
-        <p>{project.description}</p>
+        <p className="eyebrow">PROJECT CONFIGURATION</p>
+        <h1>Project settings</h1>
+        <p>Configure the Engineering workspace and review its active policies.</p>
       </div>
 
       <div className="settings-grid">
-        <section className="panel settings-members">
-          <div className="settings-title"><div><h2>Members</h2><p>{project.memberships.length} people have project access.</p></div></div>
-          {project.memberships.map((item) => (
-            <article key={item.userId}>
-              <span className="avatar">{item.user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("")}</span>
-              <div><b>{item.user.name}</b><small>{item.user.email}</small></div>
-              {canManage ? (
-                <form action={updateProjectMemberRoleAction}>
-                  <input type="hidden" name="projectId" value={project.id} />
-                  <input type="hidden" name="userId" value={item.userId} />
-                  <select name="role" defaultValue={item.role}>
-                    <option value="PROJECT_MANAGER">Project Manager</option>
-                    <option value="MEMBER">Member</option>
-                  </select>
-                  <button className="secondary">Save</button>
-                </form>
-              ) : <span>{item.role.replace("_", " ")}</span>}
-            </article>
-          ))}
+        <section className="panel settings-card project-settings-card">
+          <h2>Project details</h2>
+          <p>These values identify the workspace throughout TeamFlow.</p>
+          <form action={updateProjectSettingsAction}>
+            <input type="hidden" name="projectId" value={project.id} />
+            <label>Project name<input name="name" required minLength={2} maxLength={80} defaultValue={project.name} disabled={!canManage} /></label>
+            <label>Project key<input value={project.key} disabled /></label>
+            <label>Description<textarea name="description" maxLength={500} defaultValue={project.description ?? ""} disabled={!canManage} /></label>
+            {canManage && <button className="create">Save project settings</button>}
+          </form>
         </section>
 
         <aside>
-          {canManage && (
-            <section className="panel settings-card">
-              <h2>Add member</h2>
-              <p>If the email is new, TeamFlow creates a local account automatically.</p>
-              <form action={addProjectMemberAction}>
-                <input type="hidden" name="projectId" value={project.id} />
-                <label>Name (new accounts)<input name="name" type="text" maxLength={100} placeholder="Member name" /></label>
-                <label>Email<input name="email" type="email" required placeholder="member@teamflow.local" /></label>
-                <label>Role<select name="role"><option value="MEMBER">Member</option><option value="PROJECT_MANAGER">Project Manager</option></select></label>
-                <button className="create">Add member</button>
-              </form>
-              <p className="settings-hint">New local accounts can sign in with the temporary password <b>Demo1234!</b>.</p>
-            </section>
-          )}
           <section className="panel settings-card">
-            <h2>Notifications</h2>
-            <p>TeamFlow delivers task assignments, mentions, and RCA review requests through the in-app notification inbox.</p>
-            <Link className="secondary" href="/notifications">Open notifications</Link>
+            <h2>Task workflow</h2>
+            <p>Configured statuses:</p>
+            <div className="settings-tags">{taskStatuses.map((status) => <span key={status}>{status}</span>)}</div>
+            <small>Dependencies and capacity conflicts display warnings without blocking saves.</small>
+          </section>
+          <section className="panel settings-card">
+            <h2>Attachment policy</h2>
+            <p>Task attachments accept JPEG, PNG, WebP, and GIF images up to 1 MiB.</p>
+          </section>
+          <section className="panel settings-card">
+            <h2>Notification policy</h2>
+            <p>Assignments, mentions, and RCA review requests appear in the in-app inbox.</p>
+          </section>
+          <section className="panel settings-card">
+            <h2>Team access</h2>
+            <p>Member accounts and project roles are managed on the People page.</p>
+            <Link className="secondary" href="/people">Open People</Link>
           </section>
         </aside>
       </div>
