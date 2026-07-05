@@ -50,8 +50,6 @@ export function ProjectSwitcher({
         <span className={`project-chevron${open ? " open" : ""}`} aria-hidden="true">⌄</span>
       </button>
 
-      <Link href="/projects" className="project-add" aria-label="Create or manage projects">+</Link>
-
       {open && (
         <div className="project-menu" role="menu" aria-label="Switch current project">
           <div className="project-menu-heading">
