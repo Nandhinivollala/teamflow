@@ -10,7 +10,7 @@ export const taskStatuses = [
 export type TaskStatus = (typeof taskStatuses)[number];
 
 const transitions: Record<TaskStatus, readonly TaskStatus[]> = {
-  "TO DO": ["IN PROGRESS", "CANCELLED"],
+  "TO DO": ["IN PROGRESS", "BLOCKED", "CANCELLED"],
   "IN PROGRESS": ["TO DO", "IN REVIEW", "BLOCKED", "CANCELLED"],
   "IN REVIEW": ["IN PROGRESS", "BLOCKED", "DONE", "CANCELLED"],
   "BLOCKED": ["TO DO", "IN PROGRESS", "CANCELLED"],

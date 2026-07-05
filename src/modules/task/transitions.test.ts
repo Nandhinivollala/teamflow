@@ -10,6 +10,7 @@ test("supports the normal delivery flow", () => {
 
 test("supports blocking, reopening, restoring, and no-op saves", () => {
   assert.equal(canTransitionTask("IN PROGRESS", "BLOCKED"), true);
+  assert.equal(canTransitionTask("TO DO", "BLOCKED"), true);
   assert.equal(canTransitionTask("BLOCKED", "IN PROGRESS"), true);
   assert.equal(canTransitionTask("DONE", "IN PROGRESS"), true);
   assert.equal(canTransitionTask("CANCELLED", "TO DO"), true);
