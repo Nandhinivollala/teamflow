@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { taskStatuses } from "@/modules/task/transitions";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import { updateProjectSettingsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="settings-page">
+      <ScrollToTop />
       <div className="settings-header">
         <Link href="/">← Dashboard</Link>
         <p className="eyebrow">PROJECT CONFIGURATION</p>

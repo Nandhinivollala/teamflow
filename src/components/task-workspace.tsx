@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { exportFilteredTasksCsv } from "@/modules/reporting/csv";
 import { logoutAction } from "@/app/login/actions";
@@ -47,6 +48,7 @@ export function TaskWorkspace({
   initialCreate?: boolean;
   initialEditingTaskId?: string;
 }) {
+  const router = useRouter();
   const [view, setView] = useState<View>("board");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Task["status"] | "ALL">("ALL");
@@ -54,6 +56,12 @@ export function TaskWorkspace({
   const [editingTask, setEditingTask] = useState<Task | null>(
     tasks.find((task) => task.id === initialEditingTaskId) ?? null,
   );
+
+  function closeTaskModal() {
+    setShowCreate(false);
+    setEditingTask(null);
+    if (initialCreate || initialEditingTaskId) router.replace("/tasks", { scroll: false });
+  }
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -133,9 +141,9 @@ export function TaskWorkspace({
         </div>
       </main>
       {(showCreate || editingTask) && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => { setShowCreate(false); setEditingTask(null); }}>
+        <div className="modal-backdrop" role="presentation" onMouseDown={closeTaskModal}>
           <section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-task-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-heading"><div><p className="eyebrow">{editingTask?.key ?? "ENGINEERING"}</p><h2 id="create-task-title">{editingTask ? "Edit task" : "Create task"}</h2></div><button onClick={() => { setShowCreate(false); setEditingTask(null); }} aria-label="Close">×</button></div>
+            <div className="modal-heading"><div><p className="eyebrow">{editingTask?.key ?? "ENGINEERING"}</p><h2 id="create-task-title">{editingTask ? "Edit task" : "Create task"}</h2></div><button onClick={closeTaskModal} aria-label="Close">×</button></div>
             <form action={editingTask ? updateTaskAction : createTaskAction}>
               {editingTask && <input type="hidden" name="taskId" value={editingTask.id} />}
               <label>Task title<input name="title" required minLength={3} maxLength={160} autoFocus placeholder="What needs to be done?" defaultValue={editingTask?.title} /></label>
@@ -163,7 +171,7 @@ export function TaskWorkspace({
                 </label>
               )}
               <div className="modal-note">{editingTask ? "Only valid workflow transitions are accepted. Dependencies remain advisory warnings." : "The selected person will receive an in-app assignment notification. The task starts in To do."}</div>
-              <div className="modal-actions"><button type="button" className="secondary" onClick={() => { setShowCreate(false); setEditingTask(null); }}>Cancel</button><button type="submit" className="create">{editingTask ? "Save changes" : "Create task"}</button></div>
+              <div className="modal-actions"><button type="button" className="secondary" onClick={closeTaskModal}>Cancel</button><button type="submit" className="create">{editingTask ? "Save changes" : "Create task"}</button></div>
             </form>
             {editingTask && (
               <section className="task-comments task-attachments">

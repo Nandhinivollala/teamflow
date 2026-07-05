@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import { addProjectMemberAction, updateProjectMemberRoleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function PeoplePage() {
 
   return (
     <main className="settings-page people-page">
+      <ScrollToTop />
       <div className="settings-header">
         <Link href="/">← Dashboard</Link>
         <p className="eyebrow">TEAM DIRECTORY</p>
