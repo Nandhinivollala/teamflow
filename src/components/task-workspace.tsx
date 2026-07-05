@@ -56,6 +56,8 @@ export function TaskWorkspace({
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Task["status"] | "ALL">("ALL");
   const [showCreate, setShowCreate] = useState(initialCreate);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [taskFormError, setTaskFormError] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(
     tasks.find((task) => task.id === initialEditingTaskId) ?? null,
   );
@@ -63,7 +65,36 @@ export function TaskWorkspace({
   function closeTaskModal() {
     setShowCreate(false);
     setEditingTask(null);
+    setTaskFormError("");
     if (initialCreate || initialEditingTaskId) router.replace("/tasks", { scroll: false });
+  }
+
+  function openCreateTask() {
+    setTaskFormError("");
+    setShowCreate(true);
+  }
+
+  function openTask(task: Task) {
+    setTaskFormError("");
+    setEditingTask(task);
+  }
+
+  async function saveTask(formData: FormData) {
+    setIsSavingTask(true);
+    setTaskFormError("");
+    try {
+      if (editingTask) {
+        await updateTaskAction(formData);
+      } else {
+        await createTaskAction(formData);
+      }
+      closeTaskModal();
+      router.refresh();
+    } catch (error) {
+      setTaskFormError(error instanceof Error ? error.message : "The task could not be saved.");
+    } finally {
+      setIsSavingTask(false);
+    }
   }
 
   const filtered = useMemo(() => {
@@ -114,13 +145,13 @@ export function TaskWorkspace({
           <Link className="search task-global-search" href="/tasks">⌕ <span>Search TeamFlow</span><kbd>Ctrl K</kbd></Link>
           <ThemeToggle />
           <Link className="icon-button notification-button notification-link" href="/notifications" aria-label="Notifications">♢</Link>
-          <button className="create" onClick={() => setShowCreate(true)}>＋ Create task</button>
+          <button className="create" onClick={openCreateTask}>＋ Create task</button>
         </header>
 
         <div className="task-content">
           <div className="task-heading">
             <div><p className="eyebrow">{projectName.toUpperCase()} / TASKS</p><h1>Tasks</h1><p>Plan, prioritize, and follow work from one shared source.</p></div>
-            <div className="heading-actions"><button className="secondary" onClick={downloadCsv}>⇩ Export CSV</button><button className="create" onClick={() => setShowCreate(true)}>＋ Create task</button></div>
+            <div className="heading-actions"><button className="secondary" onClick={downloadCsv}>⇩ Export CSV</button><button className="create" onClick={openCreateTask}>＋ Create task</button></div>
           </div>
 
           <div className="task-toolbar">
@@ -141,16 +172,16 @@ export function TaskWorkspace({
 
           <div className="workflow-note"><b>Confirmed workflow.</b> Work moves through To do → In progress → In review → Done, with Blocked, Cancelled, reopen, and restore paths.</div>
 
-          {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} />}
-          {view === "list" && <List tasks={filtered} onEdit={setEditingTask} />}
-          {view === "calendar" && <Calendar tasks={filtered} onEdit={setEditingTask} />}
+          {view === "board" && <Board tasks={filtered} onEdit={openTask} />}
+          {view === "list" && <List tasks={filtered} onEdit={openTask} />}
+          {view === "calendar" && <Calendar tasks={filtered} onEdit={openTask} />}
         </div>
       </main>
       {(showCreate || editingTask) && (
         <div className="modal-backdrop" role="presentation" onMouseDown={closeTaskModal}>
           <section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-task-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-heading"><div><p className="eyebrow">{editingTask?.key ?? "ENGINEERING"}</p><h2 id="create-task-title">{editingTask ? "Edit task" : "Create task"}</h2></div><button onClick={closeTaskModal} aria-label="Close">×</button></div>
-            <form action={editingTask ? updateTaskAction : createTaskAction}>
+            <form action={saveTask}>
               {editingTask && <input type="hidden" name="taskId" value={editingTask.id} />}
               <label>Task title<input name="title" required minLength={3} maxLength={160} autoFocus placeholder="What needs to be done?" defaultValue={editingTask?.title} /></label>
               <div className="modal-fields">
@@ -177,7 +208,8 @@ export function TaskWorkspace({
                 </label>
               )}
               <div className="modal-note">{editingTask ? "Only valid workflow transitions are accepted. Dependencies remain advisory warnings." : "The selected person will receive an in-app assignment notification. The task starts in To do."}</div>
-              <div className="modal-actions"><button type="button" className="secondary" onClick={closeTaskModal}>Cancel</button><button type="submit" className="create">{editingTask ? "Save changes" : "Create task"}</button></div>
+              {taskFormError && <p className="task-form-error" role="alert">{taskFormError}</p>}
+              <div className="modal-actions"><button type="button" className="secondary" onClick={closeTaskModal} disabled={isSavingTask}>Cancel</button><button type="submit" className="create" disabled={isSavingTask}>{isSavingTask ? "Saving…" : editingTask ? "Save changes" : "Create task"}</button></div>
             </form>
             {editingTask && (
               <section className="task-comments task-attachments">
