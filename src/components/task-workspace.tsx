@@ -135,7 +135,7 @@ export function TaskWorkspace({
 
           <div className="workflow-note"><b>Confirmed workflow.</b> Work moves through To do → In progress → In review → Done, with Blocked, Cancelled, reopen, and restore paths.</div>
 
-          {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} onCreate={() => setShowCreate(true)} />}
+          {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} />}
           {view === "list" && <List tasks={filtered} />}
           {view === "calendar" && <Calendar tasks={filtered} />}
         </div>
@@ -210,7 +210,7 @@ function Priority({ value }: { value: Task["priority"] }) {
   return <span className={`priority priority-${value.toLowerCase()}`}>{value}</span>;
 }
 
-function Board({ tasks, onEdit, onCreate }: { tasks: Task[]; onEdit: (task: Task) => void; onCreate: () => void }) {
+function Board({ tasks, onEdit }: { tasks: Task[]; onEdit: (task: Task) => void }) {
   return (
     <div className="kanban">
       {statuses.map((status) => (
@@ -218,7 +218,6 @@ function Board({ tasks, onEdit, onCreate }: { tasks: Task[]; onEdit: (task: Task
           <div className="column-title"><span className={`status-dot status-${status.replaceAll(" ", "-").toLowerCase()}`} /><b>{status}</b><span>{tasks.filter((task) => task.status === status).length}</span></div>
           <div className="kanban-cards">
             {tasks.filter((task) => task.status === status).map((task) => <TaskCard task={task} onEdit={onEdit} key={task.key} />)}
-            <button className="add-task" onClick={onCreate}>＋ Add task</button>
           </div>
         </section>
       ))}
