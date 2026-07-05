@@ -120,6 +120,7 @@ model UserProjectPreference {
 model Task {
   id          String           @id @default(cuid())
   sequence    Int              @unique @default(autoincrement())
+  createRequestId String?      @unique
   title       String
   description String?
   status      String

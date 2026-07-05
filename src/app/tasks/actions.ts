@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { extractMentionHandles } from "@/modules/comments/mentions";
@@ -17,8 +18,12 @@ export async function createTaskAction(formData: FormData) {
   const dueValue = String(formData.get("dueAt") ?? "");
   const requestedAssigneeId = String(formData.get("assigneeId") ?? "") || user.id;
   const projectId = String(formData.get("projectId") ?? "");
+  const createRequestId = String(formData.get("createRequestId") ?? "");
   if (title.length < 3 || title.length > 160) {
     throw new Error("Task title must contain between 3 and 160 characters.");
+  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(createRequestId)) {
+    throw new Error("The task creation request is invalid.");
   }
 
   const project = await prisma.project.findUnique({
@@ -38,51 +43,59 @@ export async function createTaskAction(formData: FormData) {
     throw new Error("The due date is invalid.");
   }
 
-  await prisma.$transaction(async (transaction) => {
-    const task = await transaction.task.create({
-      data: {
-        title,
-        status: process.env.TASK_INITIAL_STATUS ?? "TO DO",
-        priority,
-        dueAt,
-        creatorId: user.id,
-        assigneeId: requestedAssigneeId,
-        projects: { create: { projectId: project.id } },
-      },
-    });
-
-    await transaction.auditLog.create({
-      data: {
-        actorId: user.id,
-        action: "TASK_CREATED",
-        resourceType: "Task",
-        resourceId: task.id,
-        metadata: { projectId: project.id, status: task.status, assigneeId: requestedAssigneeId },
-      },
-    });
-
-    await transaction.outboxEvent.create({
-      data: {
-        type: "TASK_CREATED",
-        aggregateId: task.id,
-        payload: { taskId: task.id, projectId: project.id, actorId: user.id, assigneeId: requestedAssigneeId },
-      },
-    });
-    await transaction.notification.create({
-      data: {
-        recipientId: requestedAssigneeId,
-        type: "TASK_ASSIGNED",
-        title: `You were assigned TF-${task.sequence}`,
-        body: task.title,
-        deduplicationKey: `${task.id}:${requestedAssigneeId}:TASK_ASSIGNED`,
-        status: "DELIVERED",
-        deliveredAt: new Date(),
-        deliveries: {
-          create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+  try {
+    await prisma.$transaction(async (transaction) => {
+      const task = await transaction.task.create({
+        data: {
+          createRequestId,
+          title,
+          status: process.env.TASK_INITIAL_STATUS ?? "TO DO",
+          priority,
+          dueAt,
+          creatorId: user.id,
+          assigneeId: requestedAssigneeId,
+          projects: { create: { projectId: project.id } },
         },
-      },
+      });
+
+      await transaction.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: "TASK_CREATED",
+          resourceType: "Task",
+          resourceId: task.id,
+          metadata: { projectId: project.id, status: task.status, assigneeId: requestedAssigneeId },
+        },
+      });
+
+      await transaction.outboxEvent.create({
+        data: {
+          type: "TASK_CREATED",
+          aggregateId: task.id,
+          payload: { taskId: task.id, projectId: project.id, actorId: user.id, assigneeId: requestedAssigneeId },
+        },
+      });
+      await transaction.notification.create({
+        data: {
+          recipientId: requestedAssigneeId,
+          type: "TASK_ASSIGNED",
+          title: `You were assigned TF-${task.sequence}`,
+          body: task.title,
+          deduplicationKey: `${task.id}:${requestedAssigneeId}:TASK_ASSIGNED`,
+          status: "DELIVERED",
+          deliveredAt: new Date(),
+          deliveries: {
+            create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
+          },
+        },
+      });
     });
-  });
+  } catch (error) {
+    const duplicateCreateRequest = error instanceof Prisma.PrismaClientKnownRequestError
+      && error.code === "P2002"
+      && JSON.stringify(error.meta?.target).includes("createRequestId");
+    if (!duplicateCreateRequest) throw error;
+  }
 
   revalidatePath("/tasks");
 }

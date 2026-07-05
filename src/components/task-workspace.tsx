@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -70,6 +70,8 @@ export function TaskWorkspace({
   const [status, setStatus] = useState<Task["status"] | "ALL">("ALL");
   const [showCreate, setShowCreate] = useState(initialCreate);
   const [isSavingTask, setIsSavingTask] = useState(false);
+  const isSubmittingTaskRef = useRef(false);
+  const createRequestIdRef = useRef<string | null>(null);
   const [taskFormError, setTaskFormError] = useState("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoUploadMessage, setPhotoUploadMessage] = useState("");
@@ -80,6 +82,7 @@ export function TaskWorkspace({
   function closeTaskModal() {
     setShowCreate(false);
     setEditingTaskId(null);
+    createRequestIdRef.current = null;
     setTaskFormError("");
     setPhotoUploadMessage("");
     setPhotoUploadError("");
@@ -99,12 +102,16 @@ export function TaskWorkspace({
   }
 
   async function saveTask(formData: FormData) {
+    if (isSubmittingTaskRef.current) return;
+    isSubmittingTaskRef.current = true;
     setIsSavingTask(true);
     setTaskFormError("");
     try {
       if (editingTask) {
         await updateTaskAction(formData);
       } else {
+        createRequestIdRef.current ??= crypto.randomUUID();
+        formData.set("createRequestId", createRequestIdRef.current);
         await createTaskAction(formData);
       }
       closeTaskModal();
@@ -112,6 +119,7 @@ export function TaskWorkspace({
     } catch (error) {
       setTaskFormError(error instanceof Error ? error.message : "The task could not be saved.");
     } finally {
+      isSubmittingTaskRef.current = false;
       setIsSavingTask(false);
     }
   }
