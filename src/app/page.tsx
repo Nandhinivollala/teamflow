@@ -127,7 +127,6 @@ export default async function Home() {
               <h1>Good afternoon, {user.name.split(/\s+/)[0]}.</h1>
               <p>Here&apos;s what&apos;s moving across your team today.</p>
             </div>
-            <Link className="secondary" href="/tasks">View my work <span>→</span></Link>
           </div>
 
           <section className="metrics" aria-label="Project summary">
