@@ -67,7 +67,6 @@ export function ProjectSwitcher({
                     className={active ? "active" : ""}
                     type="submit"
                     role="menuitem"
-                    onClick={() => setOpen(false)}
                   >
                     <span className="project-option-logo">{project.name.slice(0, 1).toUpperCase()}</span>
                     <span>
