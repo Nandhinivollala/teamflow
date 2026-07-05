@@ -62,7 +62,6 @@ export async function reassignReviewerAction(formData: FormData) {
       data: { status: "CANCELLED" },
     });
     if (reviewerId) {
-      const recipient = await transaction.user.findUniqueOrThrow({ where: { id: reviewerId } });
       await transaction.reviewAssignment.upsert({
         where: { rcaId_reviewerId: { rcaId: assignment.rcaId, reviewerId } },
         create: { rcaId: assignment.rcaId, reviewerId },
@@ -78,10 +77,7 @@ export async function reassignReviewerAction(formData: FormData) {
           status: "DELIVERED",
           deliveredAt: new Date(),
           deliveries: {
-            create: [
-              { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
-              ...(recipient.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
-            ],
+            create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
           },
         },
       });

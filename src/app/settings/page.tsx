@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import {
   addProjectMemberAction,
-  updateEmailPreferenceAction,
   updateProjectMemberRoleAction,
 } from "./actions";
 
@@ -72,12 +71,9 @@ export default async function SettingsPage() {
             </section>
           )}
           <section className="panel settings-card">
-            <h2>Email notifications</h2>
-            <p>In-app notifications remain enabled when email is disabled.</p>
-            <form action={updateEmailPreferenceAction}>
-              <input type="hidden" name="enabled" value={String(!user.emailNotificationsEnabled)} />
-              <button className="secondary">{user.emailNotificationsEnabled ? "Disable email" : "Enable email"}</button>
-            </form>
+            <h2>Notifications</h2>
+            <p>TeamFlow delivers task assignments, mentions, and RCA review requests through the in-app notification inbox.</p>
+            <Link className="secondary" href="/notifications">Open notifications</Link>
           </section>
         </aside>
       </div>

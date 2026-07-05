@@ -67,13 +67,3 @@ export async function updateProjectMemberRoleAction(formData: FormData) {
   ]);
   revalidatePath("/settings");
 }
-
-export async function updateEmailPreferenceAction(formData: FormData) {
-  const user = await requireUser();
-  const enabled = formData.get("enabled") === "true";
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { emailNotificationsEnabled: enabled },
-  });
-  revalidatePath("/settings");
-}

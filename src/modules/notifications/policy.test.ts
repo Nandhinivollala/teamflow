@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  deliveryChannels,
   notificationDeduplicationKey,
-  shouldRetryDelivery,
 } from "./policy.ts";
 
 test("the same event-recipient-type tuple produces one stable key", () => {
@@ -11,11 +9,8 @@ test("the same event-recipient-type tuple produces one stable key", () => {
   assert.equal(notificationDeduplicationKey(input), notificationDeduplicationKey(input));
 });
 
-test("email opt-out retains in-app delivery", () => {
-  assert.deepEqual(deliveryChannels(false), ["IN_APP"]);
-  assert.deepEqual(deliveryChannels(true), ["IN_APP", "EMAIL"]);
-});
-
-test("failed email delivery is surfaced rather than silently retried", () => {
-  assert.equal(shouldRetryDelivery(), false);
+test("different events produce different notification keys", () => {
+  const first = notificationDeduplicationKey({ eventId: "event-1", recipientId: "user-2", type: "TASK_ASSIGNED" });
+  const second = notificationDeduplicationKey({ eventId: "event-2", recipientId: "user-2", type: "TASK_ASSIGNED" });
+  assert.notEqual(first, second);
 });

@@ -73,10 +73,7 @@ export async function createTaskAction(formData: FormData) {
         status: "DELIVERED",
         deliveredAt: new Date(),
         deliveries: {
-          create: [
-            { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
-            ...(user.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
-          ],
+          create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
         },
       },
     });
@@ -185,7 +182,6 @@ export async function updateTaskAction(formData: FormData) {
       },
     });
     if (assigneeId && assigneeId !== task.assigneeId) {
-      const recipient = await transaction.user.findUniqueOrThrow({ where: { id: assigneeId } });
       await transaction.notification.create({
         data: {
           recipientId: assigneeId,
@@ -196,10 +192,7 @@ export async function updateTaskAction(formData: FormData) {
           status: "DELIVERED",
           deliveredAt: new Date(),
           deliveries: {
-            create: [
-              { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
-              ...(recipient.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
-            ],
+            create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
           },
         },
       });
@@ -283,7 +276,7 @@ export async function addTaskCommentAction(formData: FormData) {
   const candidates = handles.length
     ? await prisma.user.findMany({
         where: { memberships: { some: { projectId: { in: task.projects.map(({ projectId }) => projectId) } } } },
-        select: { id: true, email: true, name: true, emailNotificationsEnabled: true },
+        select: { id: true, email: true, name: true },
       })
     : [];
   const mentioned = candidates.filter((candidate) => {
@@ -315,10 +308,7 @@ export async function addTaskCommentAction(formData: FormData) {
           status: "DELIVERED",
           deliveredAt: new Date(),
           deliveries: {
-            create: [
-              { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
-              ...(recipient.emailNotificationsEnabled ? [{ channel: "EMAIL" as const, status: "PENDING" as const }] : []),
-            ],
+            create: { channel: "IN_APP", status: "DELIVERED", attemptedAt: new Date(), deliveredAt: new Date() },
           },
         },
       });

@@ -20,10 +20,10 @@ TeamFlow is a collaboration workspace for engineering delivery, incident investi
 - Server-side permission vocabulary for the confirmed Admin, Project Manager, Member, and assigned-reviewer authorities
 - Non-blocking dependency and assignee-overload warning policy
 - RCA review policy requiring comments, every assigned decision, and unanimous approval before closure
-- Deduplicated in-app/email delivery policy with email opt-out and no silent retry
+- Deduplicated in-app notification delivery for assignments, mentions, and reviews
 - PostgreSQL migrations and idempotent foundation seed
 - Authenticated task-photo uploads using local development storage, image allowlisting, and a 1 MiB limit
-- Resend email-provider adapter and an explicit pending-delivery dispatcher
+- Provider boundaries retained for optional future integrations
 - Eighteen passing domain-policy tests using Node's built-in test runner
 
 ## Prerequisites
@@ -54,8 +54,6 @@ Open `http://localhost:3000`.
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `AUTH_SECRET` | When auth is enabled | Session signing |
 | `MAX_IMAGE_UPLOAD_BYTES` | No | Image limit; defaults to 1 MiB |
-| `RESEND_API_KEY` | For external email | Resend sending-access API key |
-| `EMAIL_FROM` | For external email | Sender on a verified Resend domain |
 
 Never commit `.env` or provider credentials.
 
@@ -77,11 +75,11 @@ See [docs/source-reconciliation.md](docs/source-reconciliation.md) for the rules
 - Tasks use To do, In progress, In review, Blocked, Done, and Cancelled with controlled reopen/restore paths.
 - A Project Manager may reassign a pending review to another project member or leave it without a replacement.
 - Task attachments are photos only and must be no larger than 1 MiB.
+- External email is intentionally outside v1; all required alerts appear in the in-app inbox.
 
 ## Known limitations
 
 - Authentication uses local credentials and signed HTTP-only sessions; external identity-provider integration is not implemented.
-- External email requires a Resend account, verified domain, API key, sender address, and real recipient addresses; seeded `.local` emails cannot receive mail.
 - Uploaded images use ignored local disk storage in development; production should replace this adapter with durable object storage.
 - The local PostgreSQL migrations and seed have been executed successfully.
 - The assignee-capacity threshold must be supplied by project configuration because the source defines the warning but not the overload threshold.
@@ -96,5 +94,4 @@ pnpm test:domain
 pnpm db:generate
 pnpm db:migrate
 pnpm db:seed
-pnpm notifications:dispatch
 ```

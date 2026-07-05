@@ -9,7 +9,6 @@
     "start": "next start",
     "lint": "eslint",
     "test:domain": "node --test --experimental-strip-types src/modules/auth/token.test.ts src/modules/task/warnings.test.ts src/modules/task/transitions.test.ts src/modules/rca/review-policy.test.ts src/modules/notifications/policy.test.ts src/modules/comments/mentions.test.ts src/modules/reporting/csv.test.ts",
-    "notifications:dispatch": "tsx --env-file=.env scripts/dispatch-email.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed"

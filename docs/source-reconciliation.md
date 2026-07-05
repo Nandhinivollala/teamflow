@@ -16,10 +16,8 @@
 | RCA closure | Every assigned reviewer decides; unanimous approval required | `evaluateRcaReviews` |
 | Split review | Record both decisions and keep RCA open | `CHANGES_REQUIRED` outcome |
 | Notification triggers | Assignment, status change, RCA submission, review decision | Event-type policy |
-| Delivery | In-app and email from one event pipeline | Notification plus delivery records |
+| Delivery | In-app for the local v1 | Notification plus in-app delivery records |
 | Duplicate alerts | Suppress | Unique deduplication key |
-| Email opt-out | Per user | `emailNotificationsEnabled` |
-| Email failure | Surface directly; no silent background retry | `shouldRetryDelivery` returns false |
 | Collaboration | Task/RCA comments, mentions, attachments | Relational models and mention parser |
 | Views | Kanban, calendar, list; preference per user/project | `UserProjectPreference` |
 | Theme | Immediate light/dark toggle, browser-bound | UI responsibility; no cross-device persistence |

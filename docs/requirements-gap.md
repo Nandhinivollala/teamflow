@@ -4,7 +4,7 @@ The question paper recovered several outcomes that were absent from the earlier 
 
 - Dependency conflicts and assignee overload produce warnings without blocking saves.
 - Notifications cover task assignment, status change, RCA submission, review decisions, and comment mentions.
-- A single event produces in-app and, unless opted out, email delivery.
+- Assignment, mention, and review events produce in-app notifications.
 - Duplicate notifications are suppressed using an event-recipient-type key.
 - Email failure is surfaced directly and is not silently retried.
 - Review decisions are Approved or Rejected and require a comment.
@@ -21,5 +21,6 @@ The question paper recovered several outcomes that were absent from the earlier 
 3. The numerical or configurable threshold that defines assignee overload.
 4. Authentication provider and deployment environment.
 5. Production object-storage provider.
+6. External email delivery, intentionally deferred because v1 requires no provider account or domain.
 
 `RootCauseAnalysis.state` and RCA section kinds remain strings. The overload policy accepts an explicit capacity supplied by project configuration. Reviewer reassignment is confirmed; automated timeout and escalation behavior remains intentionally unspecified.
