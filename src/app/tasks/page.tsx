@@ -3,6 +3,7 @@ import { TaskWorkspace, type TaskWorkspaceItem } from "@/components/task-workspa
 import { prisma } from "@/lib/prisma";
 import { evaluateTaskWarnings } from "@/modules/task/warnings";
 import { requireUser } from "@/modules/auth/session";
+import { getProjectContext } from "@/modules/projects/active-project";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -26,14 +27,11 @@ export default async function TasksPage({
 }) {
   const query = await searchParams;
   const user = await requireUser();
-  const membership = user.memberships.find(({ project }) => project.key === "ENG");
-  if (!membership && user.systemRole !== "ADMIN") notFound();
-  const projectName = membership?.project.name
-    ?? (await prisma.project.findUnique({ where: { key: "ENG" }, select: { name: true } }))?.name
-    ?? "Engineering";
+  const { project, projects, membership } = await getProjectContext(user);
+  if (!project) notFound();
 
   const records = await prisma.task.findMany({
-    where: { projects: { some: { project: { key: "ENG" } } } },
+    where: { projects: { some: { projectId: project.id } } },
     include: {
       assignee: true,
       projects: { include: { project: true } },
@@ -107,11 +105,15 @@ export default async function TasksPage({
   return (
     <TaskWorkspace
       tasks={tasks}
-      projectName={projectName}
+      projectId={project.id}
+      projectKey={project.key}
+      projectName={project.name}
+      projects={projects.map(({ key, name }) => ({ key, name }))}
+      rcaCount={await prisma.rootCauseAnalysis.count({ where: { projectId: project.id } })}
       initialCreate={query.create === "1"}
       initialEditingTaskId={query.edit}
       members={(await prisma.projectMembership.findMany({
-        where: { project: { key: "ENG" } },
+        where: { projectId: project.id },
         include: { user: true },
         orderBy: { user: { name: "asc" } },
       })).map(({ user: member }) => ({ id: member.id, name: member.name }))}

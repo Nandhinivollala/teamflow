@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
+import { getProjectContext } from "@/modules/projects/active-project";
 import { ScrollToTop } from "@/components/scroll-to-top";
 import { addProjectMemberAction, updateProjectMemberRoleAction } from "./actions";
 
@@ -9,13 +10,13 @@ export const dynamic = "force-dynamic";
 
 export default async function PeoplePage() {
   const user = await requireUser();
-  const membership = user.memberships.find(({ project }) => project.key === "ENG");
-  if (!membership && user.systemRole !== "ADMIN") notFound();
+  const { project: activeProject, membership } = await getProjectContext(user);
+  if (!activeProject) notFound();
   const project = await prisma.project.findUnique({
-    where: { key: "ENG" },
+    where: { id: activeProject.id },
     include: {
       memberships: {
-        include: { user: { include: { tasksAssigned: true } } },
+        include: { user: { include: { tasksAssigned: { where: { projects: { some: { projectId: activeProject.id } } } } } } },
         orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
       },
     },

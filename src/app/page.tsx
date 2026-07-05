@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ProjectSwitcher } from "@/components/project-switcher";
 import { logoutAction } from "@/app/login/actions";
 import { requireUser } from "@/modules/auth/session";
+import { getProjectContext } from "@/modules/projects/active-project";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -46,10 +49,11 @@ function Icon({ name }: { name: string }) {
 
 export default async function Home() {
   const user = await requireUser();
-  const project = user.memberships[0]?.project;
+  const { project, projects, membership } = await getProjectContext(user);
+  if (!project) redirect("/projects");
   const role = user.systemRole === "ADMIN"
     ? "Administrator"
-    : user.memberships[0]?.role === "PROJECT_MANAGER"
+    : membership?.role === "PROJECT_MANAGER"
       ? "Project Manager"
       : "Member";
 
@@ -86,10 +90,7 @@ export default async function Home() {
     <div className="app-shell">
       <aside className="sidebar">
         <Link className="brand" href="/"><span className="brand-mark">T</span><span>TeamFlow</span></Link>
-        <div className="project-switcher">
-          <span className="project-logo">E</span>
-          <span><small>Current project</small>{project?.name ?? "Engineering"}</span>
-        </div>
+        <ProjectSwitcher projects={projects} activeProject={project} redirectTo="/" />
         <nav aria-label="Primary navigation">
           <Link className="active" href="/"><Icon name="grid" />Dashboard</Link>
           <Link href="/tasks"><Icon name="check" />Tasks<span className="nav-count">{taskMetrics.length}</span></Link>
@@ -102,7 +103,7 @@ export default async function Home() {
           <div className="user-card">
             <span className="avatar">{initials(user.name)}</span>
             <span><b>{user.name}</b><small>{role}</small></span>
-            <form action={logoutAction}><button type="submit" aria-label="Sign out">↪</button></form>
+            <form action={logoutAction}><button type="submit">Log out</button></form>
           </div>
         </div>
       </aside>
@@ -148,7 +149,7 @@ export default async function Home() {
                     <div className="task-body">
                       <div><span className="task-key">TF-{task.sequence}</span><h3>{task.title}</h3></div>
                       <div className="task-meta">
-                        <span>{task.projects[0]?.project.name ?? "Engineering"}</span><i />
+                        <span>{project.name}</span><i />
                         <span>{task.dueAt ? `◷ ${task.dueAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No due date"}</span>
                       </div>
                     </div>
@@ -182,8 +183,8 @@ export default async function Home() {
           <section className="panel progress-panel">
             <div className="panel-title"><div><h2>Project progress</h2><p>Delivery health for active projects</p></div><Link href="/reports">Open reports →</Link></div>
             <div className="progress-row">
-              <div className="project-badge indigo">E</div>
-              <div className="progress-copy"><b>{project?.name ?? "Engineering"}</b><span>{completed} of {taskMetrics.length} tasks completed</span></div>
+              <div className="project-badge indigo">{project.name.slice(0, 1).toUpperCase()}</div>
+              <div className="progress-copy"><b>{project.name}</b><span>{completed} of {taskMetrics.length} tasks completed</span></div>
               <div className="progress-track"><span style={{ width: `${completionRate}%` }} /></div>
               <strong>{completionRate}%</strong>
             </div>

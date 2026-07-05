@@ -2,15 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
+import { getProjectContext } from "@/modules/projects/active-project";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
   const user = await requireUser();
-  const membership = user.memberships.find(({ project }) => project.key === "ENG");
-  if (!membership && user.systemRole !== "ADMIN") notFound();
-
-  const project = membership?.project ?? await prisma.project.findUnique({ where: { key: "ENG" } });
+  const { project } = await getProjectContext(user);
   if (!project) notFound();
   const [tasks, rcas] = await Promise.all([
     prisma.task.findMany({

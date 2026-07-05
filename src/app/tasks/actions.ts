@@ -16,12 +16,13 @@ export async function createTaskAction(formData: FormData) {
   const priorityValue = String(formData.get("priority") ?? "Medium");
   const dueValue = String(formData.get("dueAt") ?? "");
   const requestedAssigneeId = String(formData.get("assigneeId") ?? "") || user.id;
+  const projectId = String(formData.get("projectId") ?? "");
   if (title.length < 3 || title.length > 160) {
     throw new Error("Task title must contain between 3 and 160 characters.");
   }
 
   const project = await prisma.project.findUnique({
-    where: { key: "ENG" },
+    where: { id: projectId },
     include: { memberships: true },
   });
   if (!project || (user.systemRole !== "ADMIN" && !project.memberships.some(({ userId }) => userId === user.id))) {

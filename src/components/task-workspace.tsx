@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ProjectSwitcher } from "@/components/project-switcher";
 import { exportFilteredTasksCsv } from "@/modules/reporting/csv";
 import { logoutAction } from "@/app/login/actions";
 import { addTaskCommentAction, createTaskAction, updateTaskAction, uploadTaskPhotoAction } from "@/app/tasks/actions";
@@ -39,14 +40,22 @@ function MiniIcon({ children }: { children: React.ReactNode }) {
 
 export function TaskWorkspace({
   tasks,
+  projectId,
+  projectKey,
   projectName,
+  projects,
+  rcaCount,
   viewer,
   members,
   initialCreate = false,
   initialEditingTaskId,
 }: {
   tasks: TaskWorkspaceItem[];
+  projectId: string;
+  projectKey: string;
   projectName: string;
+  projects: { key: string; name: string }[];
+  rcaCount: number;
   viewer: { name: string; initials: string; role: string };
   members: { id: string; name: string }[];
   initialCreate?: boolean;
@@ -129,7 +138,7 @@ export function TaskWorkspace({
 
   function downloadCsv() {
     const csv = exportFilteredTasksCsv(tasks, {
-      projectId: "ENG",
+      projectId: projectKey,
       status: status === "ALL" ? undefined : status,
       search,
     });
@@ -145,20 +154,17 @@ export function TaskWorkspace({
     <div className="app-shell task-app">
       <aside className="sidebar">
         <Link className="brand" href="/"><span className="brand-mark">T</span><span>TeamFlow</span></Link>
-        <div className="project-switcher" aria-label={`Current project: ${projectName}`}>
-          <span className="project-logo">{projectName.slice(0, 1).toUpperCase()}</span>
-          <span><small>Current project</small>{projectName}</span>
-        </div>
+        <ProjectSwitcher projects={projects} activeProject={{ key: projectKey, name: projectName }} redirectTo="/tasks" />
         <nav aria-label="Primary navigation">
           <Link href="/"><MiniIcon>▦</MiniIcon>Dashboard</Link>
           <Link className="active" href="/tasks"><MiniIcon>✓</MiniIcon>Tasks<span className="nav-count">{tasks.length}</span></Link>
-          <Link href="/rcas"><MiniIcon>△</MiniIcon>Root cause analyses<span className="nav-count">1</span></Link>
+          <Link href="/rcas"><MiniIcon>△</MiniIcon>Root cause analyses<span className="nav-count">{rcaCount}</span></Link>
           <Link href="/reports"><MiniIcon>⌁</MiniIcon>Reports</Link>
         </nav>
         <div className="sidebar-bottom">
           <Link href="/people"><MiniIcon>♙</MiniIcon>People</Link>
           <Link href="/settings"><MiniIcon>⚙</MiniIcon>Project settings</Link>
-          <div className="user-card"><span className="avatar">{viewer.initials}</span><span><b>{viewer.name}</b><small>{viewer.role}</small></span><form action={logoutAction}><button type="submit" aria-label="Sign out">↪</button></form></div>
+          <div className="user-card"><span className="avatar">{viewer.initials}</span><span><b>{viewer.name}</b><small>{viewer.role}</small></span><form action={logoutAction}><button type="submit">Log out</button></form></div>
         </div>
       </aside>
 
@@ -202,8 +208,9 @@ export function TaskWorkspace({
       {(showCreate || editingTask) && (
         <div className="modal-backdrop" role="presentation" onMouseDown={closeTaskModal}>
           <section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-task-title" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-heading"><div><p className="eyebrow">{editingTask?.key ?? "ENGINEERING"}</p><h2 id="create-task-title">{editingTask ? "Edit task" : "Create task"}</h2></div><button onClick={closeTaskModal} aria-label="Close">×</button></div>
+            <div className="modal-heading"><div><p className="eyebrow">{editingTask?.key ?? projectName.toUpperCase()}</p><h2 id="create-task-title">{editingTask ? "Edit task" : "Create task"}</h2></div><button onClick={closeTaskModal} aria-label="Close">×</button></div>
             <form action={saveTask}>
+              <input type="hidden" name="projectId" value={projectId} />
               {editingTask && <input type="hidden" name="taskId" value={editingTask.id} />}
               <label>Task title<input name="title" required minLength={3} maxLength={160} autoFocus placeholder="What needs to be done?" defaultValue={editingTask?.title} /></label>
               <div className="modal-fields">

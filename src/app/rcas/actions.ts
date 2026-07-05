@@ -11,6 +11,7 @@ const severities = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 export async function createTaskRcaAction(formData: FormData) {
   const user = await requireUser();
   const taskId = String(formData.get("taskId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const findings = String(formData.get("findings") ?? "").trim();
   const reviewerId = String(formData.get("reviewerId") ?? "");
@@ -30,7 +31,7 @@ export async function createTaskRcaAction(formData: FormData) {
       },
     },
   });
-  const project = task?.projects[0]?.project;
+  const project = task?.projects.find(({ projectId: taskProjectId }) => taskProjectId === projectId)?.project;
   const canCreate = user.systemRole === "ADMIN"
     || project?.memberships.some(({ userId }) => userId === user.id);
   if (!task || !project || !canCreate) throw new Error("You do not have access to this task.");
