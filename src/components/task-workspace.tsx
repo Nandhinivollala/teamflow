@@ -142,8 +142,8 @@ export function TaskWorkspace({
           <div className="workflow-note"><b>Confirmed workflow.</b> Work moves through To do → In progress → In review → Done, with Blocked, Cancelled, reopen, and restore paths.</div>
 
           {view === "board" && <Board tasks={filtered} onEdit={setEditingTask} />}
-          {view === "list" && <List tasks={filtered} />}
-          {view === "calendar" && <Calendar tasks={filtered} />}
+          {view === "list" && <List tasks={filtered} onEdit={setEditingTask} />}
+          {view === "calendar" && <Calendar tasks={filtered} onEdit={setEditingTask} />}
         </div>
       </main>
       {(showCreate || editingTask) && (
@@ -233,12 +233,24 @@ function Board({ tasks, onEdit }: { tasks: Task[]; onEdit: (task: Task) => void 
 
 function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }) {
   return (
-    <article className="kanban-card">
-      <div className="card-top"><span>{task.key}</span><button onClick={() => onEdit(task)} aria-label={`Edit ${task.key}`}>✎</button></div>
+    <article
+      className="kanban-card"
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${task.key}: ${task.title}`}
+      onClick={() => onEdit(task)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onEdit(task);
+        }
+      }}
+    >
+      <div className="card-top"><span>{task.key}</span><span>Open task</span></div>
       <h2>{task.title}</h2>
       {task.warning && <p className="task-warning">⚠ {task.warning}</p>}
       {task.status === "IN REVIEW" && (
-        <Link className="task-rca-link" href={task.rcaId ? `/rcas#rca-${task.rcaId}` : `/rcas?task=${task.id}`}>
+        <Link className="task-rca-link" onClick={(event) => event.stopPropagation()} href={task.rcaId ? `/rcas#rca-${task.rcaId}` : `/rcas?task=${task.id}`}>
           {task.rcaId ? "View RCA" : "＋ Add RCA"}
         </Link>
       )}
@@ -247,12 +259,25 @@ function TaskCard({ task, onEdit }: { task: Task; onEdit: (task: Task) => void }
   );
 }
 
-function List({ tasks }: { tasks: Task[] }) {
+function List({ tasks, onEdit }: { tasks: Task[]; onEdit: (task: Task) => void }) {
   return (
     <div className="task-table panel">
       <div className="task-table-row task-table-head"><span>Task</span><span>Status</span><span>Priority</span><span>Due</span><span>Assignee</span></div>
       {tasks.map((task) => (
-        <article className="task-table-row" key={task.key}>
+        <article
+          className="task-table-row task-table-item"
+          role="button"
+          tabIndex={0}
+          aria-label={`Open ${task.key}: ${task.title}`}
+          onClick={() => onEdit(task)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onEdit(task);
+            }
+          }}
+          key={task.key}
+        >
           <span><small>{task.key}</small><b>{task.title}</b>{task.warning && <em>⚠ {task.warning}</em>}</span>
           <span className="table-status">{task.status}</span><span><Priority value={task.priority} /></span><span>{task.due}</span><span className="avatar">{task.assignee}</span>
         </article>
@@ -262,7 +287,7 @@ function List({ tasks }: { tasks: Task[] }) {
   );
 }
 
-function Calendar({ tasks }: { tasks: Task[] }) {
+function Calendar({ tasks, onEdit }: { tasks: Task[]; onEdit: (task: Task) => void }) {
   const [month, setMonth] = useState(() => new Date(Date.UTC(2026, 6, 1)));
   const year = month.getUTCFullYear();
   const monthIndex = month.getUTCMonth();
@@ -288,7 +313,7 @@ function Calendar({ tasks }: { tasks: Task[] }) {
             : "";
           const dayTasks = tasks.filter((task) => task.dueIso === dateKey);
           const today = dateKey === new Date().toISOString().slice(0, 10);
-          return <div className={`calendar-day ${today ? "today" : ""}`} key={index}><span>{validDay ? day : ""}</span>{dayTasks.map((task) => <small key={task.key}>{task.key} · {task.title}</small>)}</div>;
+          return <div className={`calendar-day ${today ? "today" : ""}`} key={index}><span>{validDay ? day : ""}</span>{dayTasks.map((task) => <button className="calendar-task" onClick={() => onEdit(task)} key={task.key}>{task.key} · {task.title}</button>)}</div>;
         })}
       </div>
     </div>

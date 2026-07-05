@@ -155,12 +155,14 @@ header { height:66px; padding:0 34px; background:white; border-bottom:1px solid 
 .column-title { height:47px; display:flex; align-items:center; gap:8px; padding:0 12px; color:#5b6577; }
 .column-title b { font-size:10px; letter-spacing:.5px; }
 .column-title>span:not(.status-dot) { padding:2px 6px; background:#dfe3eb; border-radius:10px; font-size:9px; }
-.column-title button,.kanban-card button { margin-left:auto; border:0; background:transparent; color:#9299a7; cursor:pointer; }
+.column-title button { margin-left:auto; border:0; background:transparent; color:#9299a7; cursor:pointer; }
 .status-dot { width:7px; height:7px; border-radius:50%; background:#8992a3; }
 .status-in-progress { background:#417ed2; }.status-in-review { background:#735fe5; }.status-done { background:#14a187; }
 .kanban-cards { display:grid; gap:9px; padding:0 9px 10px; }
-.kanban-card { min-height:144px; padding:13px; background:white; border:1px solid #e2e5eb; border-radius:8px; box-shadow:0 2px 5px #17213b09; }
+.kanban-card { min-height:144px; padding:13px; background:white; border:1px solid #e2e5eb; border-radius:8px; box-shadow:0 2px 5px #17213b09; cursor:pointer; transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease; }
+.kanban-card:hover,.kanban-card:focus-visible { transform:translateY(-2px); border-color:#aaa1f0; box-shadow:0 8px 18px #17213b14; outline:none; }
 .card-top { display:flex; align-items:center; color:#8a93a4; font-size:9px; font-weight:700; }
+.card-top>span:last-child { margin-left:auto; color:#6557dc; }
 .kanban-card h2 { min-height:34px; margin:10px 0 13px; color:#333d50; font-size:12px; line-height:1.45; }
 .task-warning { margin:-5px 0 10px; color:#b8781b; font-size:9px; }
 .task-rca-link { display:inline-flex; margin:2px 0 12px; padding:7px 10px; border:1px solid #d8d3ff; border-radius:6px; color:#6557dc; background:#f7f5ff; font-size:9px; font-weight:750; }
@@ -177,6 +179,7 @@ header { height:66px; padding:0 34px; background:white; border-bottom:1px solid 
 .task-table-row>span:first-child small,.task-table-row>span:first-child b,.task-table-row>span:first-child em { display:block; }
 .task-table-row>span:first-child small { color:#939bab; margin-bottom:4px; }.task-table-row>span:first-child b { color:#354054; font-size:11px; }.task-table-row>span:first-child em { color:#b8781b; margin-top:5px; font-style:normal; font-size:9px; }
 .task-table-row>.avatar { width:28px; min-height:28px; padding:0; }
+.task-table-item { cursor:pointer; transition:background .15s ease; }.task-table-item:hover,.task-table-item:focus-visible{background:#f8f7ff;outline:2px solid #d8d3ff;outline-offset:-2px}
 .table-status { font-size:9px; font-weight:700; }
 .empty-state { padding:50px; text-align:center; color:#8a93a4; }
 .calendar-title { height:60px; display:flex; align-items:center; gap:9px; padding:0 17px; border-bottom:1px solid var(--border); }
@@ -185,7 +188,7 @@ header { height:66px; padding:0 34px; background:white; border-bottom:1px solid 
 .calendar-day-name { padding:11px; color:#9199a8; background:#f8f9fb; border-bottom:1px solid var(--border); font-size:8px; text-align:center; }
 .calendar-day { min-height:110px; padding:9px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); color:#7f8899; font-size:10px; }
 .calendar-day:nth-child(7n) { border-right:0; }.calendar-day.today>span { display:grid; place-items:center; width:22px; height:22px; color:white; background:var(--indigo); border-radius:50%; }
-.calendar-day small { display:block; margin-top:7px; padding:6px; overflow:hidden; color:#4f467d; background:#eeeaff; border-left:2px solid #725fe4; border-radius:4px; white-space:nowrap; text-overflow:ellipsis; font-size:8px; }
+.calendar-task { display:block; width:100%; margin-top:7px; padding:6px; overflow:hidden; color:#4f467d; background:#eeeaff; border:0; border-left:2px solid #725fe4; border-radius:4px; white-space:nowrap; text-align:left; text-overflow:ellipsis; font-size:8px; cursor:pointer; }.calendar-task:hover,.calendar-task:focus-visible{background:#dfd9ff;outline:1px solid #725fe4}
 [data-theme="dark"] .task-toolbar,[data-theme="dark"] .kanban-card,[data-theme="dark"] .task-toolbar select,[data-theme="dark"] .calendar-title button { background:#171f31; color:#dfe4ef; border-color:#2c3549; }
 [data-theme="dark"] .view-tabs,[data-theme="dark"] .kanban-column,[data-theme="dark"] .task-table-head,[data-theme="dark"] .calendar-day-name { background:#111829; border-color:#2c3549; }
 [data-theme="dark"] .view-tabs button.selected { background:#283247; color:white; }
