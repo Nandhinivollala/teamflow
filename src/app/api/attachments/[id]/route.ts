@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/modules/auth/session";
-import { localObjectStorage } from "@/modules/files/local-storage";
+import { objectStorage } from "@/modules/files/object-storage";
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -22,7 +22,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (!canRead) return NextResponse.json({ error: "Access denied." }, { status: 403 });
 
   try {
-    const body = await localObjectStorage.get(attachment.storageKey);
+    const body = await objectStorage.get(attachment.storageKey);
     const responseBody = new Uint8Array(body.byteLength);
     responseBody.set(body);
     return new Response(responseBody.buffer, {

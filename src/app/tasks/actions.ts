@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { extractMentionHandles } from "@/modules/comments/mentions";
-import { localObjectStorage } from "@/modules/files/local-storage";
+import { objectStorage } from "@/modules/files/object-storage";
 import { canTransitionTask, isTaskStatus } from "@/modules/task/transitions";
 
 const priorities = new Set(["High", "Medium", "Low"]);
@@ -234,13 +234,13 @@ export async function uploadTaskPhotoAction(formData: FormData) {
 
   const storageKey = `${taskId}/${randomUUID()}.${extension}`;
   const body = new Uint8Array(await photo.arrayBuffer());
-  await localObjectStorage.put(storageKey, body, photo.type);
+  const stored = await objectStorage.put(storageKey, body, photo.type);
   try {
     await prisma.$transaction([
       prisma.attachment.create({
         data: {
           taskId,
-          storageKey,
+          storageKey: stored.key,
           fileName: photo.name.slice(0, 255),
           contentType: photo.type,
           sizeBytes: photo.size,
@@ -252,12 +252,12 @@ export async function uploadTaskPhotoAction(formData: FormData) {
           action: "TASK_PHOTO_UPLOADED",
           resourceType: "Task",
           resourceId: taskId,
-          metadata: { storageKey, fileName: photo.name, sizeBytes: photo.size },
+          metadata: { storageKey: stored.key, fileName: photo.name, sizeBytes: photo.size },
         },
       }),
     ]);
   } catch (error) {
-    await localObjectStorage.delete(storageKey);
+    await objectStorage.delete(stored.key);
     throw error;
   }
   revalidatePath("/tasks");
