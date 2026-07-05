@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { loginAction } from "./actions";
 import { getCurrentUser } from "@/modules/auth/session";
@@ -34,10 +35,10 @@ export default async function LoginPage({
           <h2>Sign in to TeamFlow</h2>
           <p>Use your workspace credentials to continue.</p>
           {error && <div className="login-error" role="alert">The email or password is incorrect.</div>}
-          <label>Email address<input name="email" type="email" required autoComplete="email" defaultValue="manager@teamflow.local" /></label>
-          <label>Password<input name="password" type="password" required autoComplete="current-password" defaultValue="Demo1234!" /></label>
+          <label>Email address<input name="email" type="email" required autoComplete="email" /></label>
+          <label>Password<input name="password" type="password" required autoComplete="current-password" /></label>
           <button className="create login-submit" type="submit">Sign in →</button>
-          <div className="demo-credentials"><b>Demo Project Manager</b><span>manager@teamflow.local</span><span>Demo1234!</span></div>
+          <div className="auth-switch">New to TeamFlow? <Link href="/signup">Create an account</Link></div>
         </form>
       </section>
     </main>
