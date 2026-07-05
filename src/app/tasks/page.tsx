@@ -23,7 +23,7 @@ function initials(name: string) {
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ create?: string; edit?: string }>;
+  searchParams: Promise<{ create?: string; edit?: string; search?: string }>;
 }) {
   const query = await searchParams;
   const user = await requireUser();
@@ -112,6 +112,7 @@ export default async function TasksPage({
       rcaCount={await prisma.rootCauseAnalysis.count({ where: { projectId: project.id } })}
       initialCreate={query.create === "1"}
       initialEditingTaskId={query.edit}
+      initialSearch={query.search}
       members={(await prisma.projectMembership.findMany({
         where: { projectId: project.id },
         include: { user: true },

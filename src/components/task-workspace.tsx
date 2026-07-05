@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { TaskSearchBar } from "@/components/task-search-bar";
 import { exportFilteredTasksCsv } from "@/modules/reporting/csv";
 import { logoutAction } from "@/app/login/actions";
 import { addTaskCommentAction, createTaskAction, updateTaskAction, uploadTaskPhotoAction } from "@/app/tasks/actions";
@@ -49,6 +50,7 @@ export function TaskWorkspace({
   members,
   initialCreate = false,
   initialEditingTaskId,
+  initialSearch = "",
 }: {
   tasks: TaskWorkspaceItem[];
   projectId: string;
@@ -60,10 +62,11 @@ export function TaskWorkspace({
   members: { id: string; name: string }[];
   initialCreate?: boolean;
   initialEditingTaskId?: string;
+  initialSearch?: string;
 }) {
   const router = useRouter();
   const [view, setView] = useState<View>("board");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState<Task["status"] | "ALL">("ALL");
   const [showCreate, setShowCreate] = useState(initialCreate);
   const [isSavingTask, setIsSavingTask] = useState(false);
@@ -170,7 +173,7 @@ export function TaskWorkspace({
 
       <main className="main">
         <header>
-          <Link className="search task-global-search" href="/tasks">⌕ <span>Search TeamFlow</span><kbd>Ctrl K</kbd></Link>
+          <TaskSearchBar projectName={projectName} defaultValue={search} className="task-global-search" />
           <ThemeToggle />
           <Link className="icon-button notification-button notification-link" href="/notifications" aria-label="Notifications">♢</Link>
           <button className="create" onClick={openCreateTask}>＋ Create task</button>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProjectSwitcher } from "@/components/project-switcher";
+import { TaskSearchBar } from "@/components/task-search-bar";
 import { logoutAction } from "@/app/login/actions";
 import { requireUser } from "@/modules/auth/session";
 import { getProjectContext } from "@/modules/projects/active-project";
@@ -111,7 +112,7 @@ export default async function Home() {
       <main className="main">
         <header>
           <Link className="mobile-menu" href="/tasks" aria-label="Open tasks navigation">☰</Link>
-          <Link className="search" href="/tasks">⌕ <span>Search tasks, projects, or people</span><kbd>Ctrl K</kbd></Link>
+          <TaskSearchBar projectName={project.name} />
           <ThemeToggle />
           <Link className="icon-button notification-button notification-link" href="/notifications" aria-label={`${unreadNotifications} unread notifications`}>
             ♢{unreadNotifications > 0 && <span className="dot" />}

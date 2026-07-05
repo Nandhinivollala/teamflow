@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { evaluateRcaReviews } from "@/modules/rca/review-policy";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TaskSearchBar } from "@/components/task-search-bar";
 import { logoutAction } from "@/app/login/actions";
 import { createTaskRcaAction, reassignReviewerAction, submitReviewAction } from "./actions";
 
@@ -92,7 +93,7 @@ export default async function RcasPage({
 
       <main className="main">
         <header>
-          <Link className="search" href="/tasks">⌕ <span>Search tasks in {project.name}</span><kbd>Ctrl K</kbd></Link>
+          <TaskSearchBar projectName={project.name} />
           <ThemeToggle />
           <Link className="icon-button notification-button notification-link" href="/notifications" aria-label={`${unreadNotifications} unread notifications`}>
             ♢{unreadNotifications > 0 && <span className="dot" />}
