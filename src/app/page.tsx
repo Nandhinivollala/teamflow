@@ -24,14 +24,20 @@ function relativeTime(date: Date) {
 
 function activityText(action: string) {
   const labels: Record<string, string> = {
+    ACCOUNT_CREATED: "created an account",
+    PROJECT_CREATED: "created a project",
     TASK_CREATED: "created a task",
     TASK_UPDATED: "updated a task",
     TASK_COMMENTED: "commented on a task",
     TASK_PHOTO_UPLOADED: "uploaded a task photo",
+    TASK_PHOTO_DELETED: "deleted a task photo",
+    RCA_CREATED: "created an RCA",
     RCA_REVIEW_DECIDED: "submitted an RCA review",
     RCA_REVIEWER_REASSIGNED: "reassigned an RCA reviewer",
     PROJECT_MEMBER_ADDED: "added a project member",
     PROJECT_MEMBER_ROLE_CHANGED: "changed a project role",
+    PASSWORD_RESET_REQUESTED: "requested a password reset",
+    PASSWORD_RESET_COMPLETED: "reset a password",
   };
   return labels[action] ?? action.toLowerCase().replaceAll("_", " ");
 }
@@ -58,11 +64,11 @@ export default async function Home() {
       ? "Project Manager"
       : "Member";
 
-  const [taskMetrics, pendingReviews, focusTasks, recentActivity, rcaCount, unreadNotifications] =
+  const [projectTaskSummaries, pendingReviews, focusTasks, projectRcas, unreadNotifications] =
     await Promise.all([
       prisma.task.findMany({
         where: project ? { projects: { some: { projectId: project.id } } } : {},
-        select: { status: true, dueAt: true },
+        select: { id: true, status: true, dueAt: true },
       }),
       prisma.reviewAssignment.count({ where: { reviewerId: user.id, status: "ASSIGNED" } }),
       prisma.task.findMany({
@@ -75,10 +81,31 @@ export default async function Home() {
         orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
         take: 3,
       }),
-      prisma.auditLog.findMany({ include: { actor: true }, orderBy: { createdAt: "desc" }, take: 3 }),
-      prisma.rootCauseAnalysis.count({ where: project ? { projectId: project.id } : {} }),
+      prisma.rootCauseAnalysis.findMany({
+        where: project ? { projectId: project.id } : {},
+        select: { id: true },
+      }),
       prisma.notification.count({ where: { recipientId: user.id, readAt: null } }),
     ]);
+
+  const taskIds = projectTaskSummaries.map((task) => task.id);
+  const rcaIds = projectRcas.map((rca) => rca.id);
+  const taskMetrics = projectTaskSummaries.map(({ status, dueAt }) => ({ status, dueAt }));
+  const recentActivity = await prisma.auditLog.findMany({
+    where: {
+      OR: [
+        { actorId: user.id, action: { in: ["ACCOUNT_CREATED", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_COMPLETED"] } },
+        { action: "PROJECT_CREATED", actorId: user.id, resourceId: project.id },
+        { resourceType: "Project", resourceId: project.id },
+        ...(taskIds.length > 0 ? [{ resourceType: "Task", resourceId: { in: taskIds } }] : []),
+        ...(rcaIds.length > 0 ? [{ resourceType: "RootCauseAnalysis", resourceId: { in: rcaIds } }] : []),
+      ],
+    },
+    include: { actor: true },
+    orderBy: { createdAt: "desc" },
+    take: 3,
+  });
+  const rcaCount = projectRcas.length;
 
   const completed = taskMetrics.filter((task) => task.status === "DONE").length;
   const open = taskMetrics.filter((task) => !["DONE", "CANCELLED"].includes(task.status)).length;
