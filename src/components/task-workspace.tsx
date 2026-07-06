@@ -1,5 +1,6 @@
 "use client";
 
+import type { FormEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -118,14 +119,24 @@ export function TaskWorkspace({
         formData.set("createRequestId", createRequestIdRef.current);
         await createTaskAction(formData);
       }
-      closeTaskModal();
-      router.refresh();
+      setShowCreate(false);
+      setEditingTaskId(null);
+      setTaskFormError("");
+      setPhotoUploadMessage("");
+      setPhotoUploadError("");
+      createRequestIdRef.current = null;
+      window.location.assign("/tasks");
     } catch (error) {
       setTaskFormError(error instanceof Error ? error.message : "The task could not be saved.");
     } finally {
       isSubmittingTaskRef.current = false;
       setIsSavingTask(false);
     }
+  }
+
+  async function handleTaskSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await saveTask(new FormData(event.currentTarget));
   }
 
   async function uploadPhoto(formData: FormData) {
@@ -255,7 +266,7 @@ export function TaskWorkspace({
         <div className="modal-backdrop" role="presentation" onMouseDown={closeTaskModal}>
           <section className="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-task-title" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-heading"><div><p className="eyebrow">{editingTask?.key ?? projectName.toUpperCase()}</p><h2 id="create-task-title">{editingTask ? "Edit task" : "Create task"}</h2></div><button onClick={closeTaskModal} aria-label="Close">×</button></div>
-            <form action={saveTask}>
+            <form onSubmit={handleTaskSubmit}>
               <input type="hidden" name="projectId" value={projectId} />
               {editingTask && <input type="hidden" name="taskId" value={editingTask.id} />}
               <label>Task title<input name="title" required minLength={3} maxLength={160} autoFocus placeholder="What needs to be done?" defaultValue={editingTask?.title} /></label>
