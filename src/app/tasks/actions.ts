@@ -276,6 +276,51 @@ export async function uploadTaskPhotoAction(formData: FormData) {
   revalidatePath("/tasks");
 }
 
+export async function deleteTaskPhotoAction(attachmentId: string) {
+  const user = await requireUser();
+  const id = attachmentId.trim();
+  if (!id) throw new Error("Choose a photo to delete.");
+
+  const attachment = await prisma.attachment.findUnique({
+    where: { id },
+    include: {
+      task: {
+        include: {
+          projects: {
+            include: {
+              project: { include: { memberships: { where: { userId: user.id } } } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!attachment?.task || (user.systemRole !== "ADMIN" && !attachment.task.projects.some(({ project }) => project.memberships.length))) {
+    throw new Error("You do not have access to this photo.");
+  }
+
+  await prisma.$transaction([
+    prisma.attachment.delete({ where: { id } }),
+    prisma.auditLog.create({
+      data: {
+        actorId: user.id,
+        action: "TASK_PHOTO_DELETED",
+        resourceType: "Task",
+        resourceId: attachment.taskId!,
+        metadata: { attachmentId: attachment.id, storageKey: attachment.storageKey, fileName: attachment.fileName },
+      },
+    }),
+  ]);
+
+  try {
+    await objectStorage.delete(attachment.storageKey);
+  } catch (error) {
+    console.error("Failed to delete stored photo", error);
+  }
+
+  revalidatePath("/tasks");
+}
+
 export async function addTaskCommentAction(formData: FormData) {
   const user = await requireUser();
   const taskId = String(formData.get("taskId") ?? "");

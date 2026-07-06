@@ -9,7 +9,7 @@ import { ProjectSwitcher } from "@/components/project-switcher";
 import { TaskSearchBar } from "@/components/task-search-bar";
 import { exportFilteredTasksCsv } from "@/modules/reporting/csv";
 import { logoutAction } from "@/app/login/actions";
-import { addTaskCommentAction, createTaskAction, updateTaskAction, uploadTaskPhotoAction } from "@/app/tasks/actions";
+import { addTaskCommentAction, createTaskAction, deleteTaskPhotoAction, updateTaskAction, uploadTaskPhotoAction } from "@/app/tasks/actions";
 
 type View = "board" | "list" | "calendar";
 export type TaskWorkspaceItem = {
@@ -74,6 +74,7 @@ export function TaskWorkspace({
   const createRequestIdRef = useRef<string | null>(null);
   const [taskFormError, setTaskFormError] = useState("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [photoUploadMessage, setPhotoUploadMessage] = useState("");
   const [photoUploadError, setPhotoUploadError] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(initialEditingTaskId ?? null);
@@ -136,6 +137,21 @@ export function TaskWorkspace({
       setPhotoUploadError(error instanceof Error ? error.message : "The photo could not be uploaded.");
     } finally {
       setIsUploadingPhoto(false);
+    }
+  }
+
+  async function deletePhoto(attachmentId: string) {
+    setDeletingPhotoId(attachmentId);
+    setPhotoUploadMessage("");
+    setPhotoUploadError("");
+    try {
+      await deleteTaskPhotoAction(attachmentId);
+      setPhotoUploadMessage("Photo deleted successfully.");
+      router.refresh();
+    } catch (error) {
+      setPhotoUploadError(error instanceof Error ? error.message : "The photo could not be deleted.");
+    } finally {
+      setDeletingPhotoId(null);
     }
   }
 
@@ -261,7 +277,21 @@ export function TaskWorkspace({
                         <a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">
                           <Image src={`/api/attachments/${attachment.id}`} alt={attachment.fileName} width={320} height={180} unoptimized />
                         </a>
-                        <figcaption><b>{attachment.fileName}</b><span>{attachment.sizeLabel}</span><a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">Open full image</a></figcaption>
+                        <figcaption>
+                          <b>{attachment.fileName}</b>
+                          <span>{attachment.sizeLabel}</span>
+                          <div className="photo-actions">
+                            <a href={`/api/attachments/${attachment.id}`} target="_blank" rel="noreferrer">Open full image</a>
+                            <button
+                              type="button"
+                              className="photo-delete"
+                              onClick={() => deletePhoto(attachment.id)}
+                              disabled={deletingPhotoId === attachment.id}
+                            >
+                              {deletingPhotoId === attachment.id ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        </figcaption>
                       </figure>
                     ))}
                   </div>
