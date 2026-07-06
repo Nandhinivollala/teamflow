@@ -40,9 +40,23 @@ export async function getCurrentUser() {
 
   return prisma.user.findUnique({
     where: { id: payload.userId },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      systemRole: true,
       memberships: {
-        include: { project: true },
+        select: {
+          role: true,
+          project: {
+            select: {
+              id: true,
+              key: true,
+              name: true,
+              description: true,
+            },
+          },
+        },
         orderBy: { joinedAt: "asc" },
       },
     },

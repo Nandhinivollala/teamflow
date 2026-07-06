@@ -9,7 +9,7 @@ async function requireProjectManager(projectId: string) {
   const user = await requireUser();
   if (user.systemRole === "ADMIN") return user;
   const membership = user.memberships.find(
-    (item) => item.projectId === projectId && item.role === "PROJECT_MANAGER",
+    (item) => item.project.id === projectId && item.role === "PROJECT_MANAGER",
   );
   if (!membership) throw new Error("Project Manager permission is required.");
   return user;

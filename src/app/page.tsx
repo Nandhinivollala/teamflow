@@ -87,7 +87,13 @@ export default async function Home() {
           status: { notIn: ["DONE", "CANCELLED"] },
           ...(project ? { projects: { some: { projectId: project.id } } } : {}),
         },
-        include: { assignee: true },
+        select: {
+          id: true,
+          sequence: true,
+          title: true,
+          dueAt: true,
+          assignee: { select: { name: true } },
+        },
         orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
         take: 3,
       }),
@@ -110,7 +116,7 @@ export default async function Home() {
         ...(rcaIds.length > 0 ? [{ resourceType: "RootCauseAnalysis", resourceId: { in: rcaIds } }] : []),
       ],
     },
-    include: { actor: true },
+    include: { actor: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: 3,
   });

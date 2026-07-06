@@ -78,7 +78,10 @@ export function TaskWorkspace({
   const [photoUploadMessage, setPhotoUploadMessage] = useState("");
   const [photoUploadError, setPhotoUploadError] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(initialEditingTaskId ?? null);
-  const editingTask = tasks.find((task) => task.id === editingTaskId) ?? null;
+  const editingTask = useMemo(
+    () => tasks.find((task) => task.id === editingTaskId) ?? null,
+    [editingTaskId, tasks],
+  );
 
   function closeTaskModal() {
     setShowCreate(false);
@@ -163,6 +166,22 @@ export function TaskWorkspace({
     });
   }, [search, status, tasks]);
 
+  const tasksByStatus = useMemo(
+    () =>
+      statuses.reduce<Record<Task["status"], Task[]>>((groups, currentStatus) => {
+        groups[currentStatus] = filtered.filter((task) => task.status === currentStatus);
+        return groups;
+      }, {
+        "TO DO": [],
+        "IN PROGRESS": [],
+        "IN REVIEW": [],
+        BLOCKED: [],
+        DONE: [],
+        CANCELLED: [],
+      }),
+    [filtered],
+  );
+
   function downloadCsv() {
     const csv = exportFilteredTasksCsv(tasks, {
       projectId: projectKey,
@@ -227,7 +246,7 @@ export function TaskWorkspace({
 
           <div className="workflow-note"><b>Confirmed workflow.</b> Work moves through To do → In progress → In review → Done, with Blocked, Cancelled, reopen, and restore paths.</div>
 
-          {view === "board" && <Board tasks={filtered} onEdit={openTask} />}
+          {view === "board" && <Board tasksByStatus={tasksByStatus} onEdit={openTask} />}
           {view === "list" && <List tasks={filtered} onEdit={openTask} />}
           {view === "calendar" && <Calendar tasks={filtered} onEdit={openTask} />}
         </div>
@@ -331,14 +350,20 @@ function Priority({ value }: { value: Task["priority"] }) {
   return <span className={`priority priority-${value.toLowerCase()}`}>{value}</span>;
 }
 
-function Board({ tasks, onEdit }: { tasks: Task[]; onEdit: (task: Task) => void }) {
+function Board({
+  tasksByStatus,
+  onEdit,
+}: {
+  tasksByStatus: Record<Task["status"], Task[]>;
+  onEdit: (task: Task) => void;
+}) {
   return (
     <div className="kanban">
       {statuses.map((status) => (
         <section className="kanban-column" key={status}>
-          <div className="column-title"><span className={`status-dot status-${status.replaceAll(" ", "-").toLowerCase()}`} /><b>{status}</b><span>{tasks.filter((task) => task.status === status).length}</span></div>
+          <div className="column-title"><span className={`status-dot status-${status.replaceAll(" ", "-").toLowerCase()}`} /><b>{status}</b><span>{tasksByStatus[status].length}</span></div>
           <div className="kanban-cards">
-            {tasks.filter((task) => task.status === status).map((task) => <TaskCard task={task} onEdit={onEdit} key={task.key} />)}
+            {tasksByStatus[status].map((task) => <TaskCard task={task} onEdit={onEdit} key={task.key} />)}
           </div>
         </section>
       ))}

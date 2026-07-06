@@ -20,7 +20,15 @@ type ProjectUser = {
 
 export async function getProjectContext(user: ProjectUser) {
   const projects = user.systemRole === "ADMIN"
-    ? await prisma.project.findMany({ orderBy: { name: "asc" } })
+    ? await prisma.project.findMany({
+        select: {
+          id: true,
+          key: true,
+          name: true,
+          description: true,
+        },
+        orderBy: { name: "asc" },
+      })
     : user.memberships.map(({ project }) => project).sort((a, b) => a.name.localeCompare(b.name));
   const requestedKey = (await cookies()).get(ACTIVE_PROJECT_COOKIE)?.value;
   const project = projects.find(({ key }) => key === requestedKey) ?? projects[0] ?? null;

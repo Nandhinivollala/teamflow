@@ -15,7 +15,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     },
   });
   if (!attachment) return NextResponse.json({ error: "Attachment not found." }, { status: 404 });
-  const projectIds = new Set(user.memberships.map(({ projectId }) => projectId));
+  const projectIds = new Set(user.memberships.map(({ project }) => project.id));
   const canRead = user.systemRole === "ADMIN"
     || attachment.task?.projects.some(({ projectId }) => projectIds.has(projectId))
     || (attachment.rca && projectIds.has(attachment.rca.projectId));

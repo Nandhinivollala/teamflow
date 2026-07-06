@@ -10,12 +10,17 @@ export default async function ReportsPage() {
   const user = await requireUser();
   const { project } = await getProjectContext(user);
   if (!project) notFound();
-  const [tasks, rcas] = await Promise.all([
+  const [tasks, rcaCount, activeRcaCount] = await Promise.all([
     prisma.task.findMany({
       where: { projects: { some: { projectId: project.id } } },
-      include: { assignee: true },
+      select: {
+        status: true,
+        assigneeId: true,
+        assignee: { select: { name: true } },
+      },
     }),
-    prisma.rootCauseAnalysis.findMany({ where: { projectId: project.id } }),
+    prisma.rootCauseAnalysis.count({ where: { projectId: project.id } }),
+    prisma.rootCauseAnalysis.count({ where: { projectId: project.id, state: { not: "CLOSED" } } }),
   ]);
 
   const completed = tasks.filter(({ status }) => status === "DONE").length;
@@ -45,7 +50,7 @@ export default async function ReportsPage() {
       <section className="report-kpis">
         <article><small>TOTAL TASKS</small><strong>{tasks.length}</strong><span>{tasks.length - completed} still open</span></article>
         <article><small>COMPLETION</small><strong>{completion}%</strong><span>{completed} delivered</span></article>
-        <article><small>RCA VOLUME</small><strong>{rcas.length}</strong><span>{rcas.filter(({ state }) => state !== "CLOSED").length} active</span></article>
+        <article><small>RCA VOLUME</small><strong>{rcaCount}</strong><span>{activeRcaCount} active</span></article>
         <article><small>TEAM MEMBERS</small><strong>{workload.length}</strong><span>with assigned work</span></article>
       </section>
       <div className="report-grid">
