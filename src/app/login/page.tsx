@@ -37,6 +37,7 @@ export default async function LoginPage({
           {error && <div className="login-error" role="alert">The email or password is incorrect.</div>}
           <label>Email address<input name="email" type="email" required autoComplete="email" /></label>
           <label>Password<input name="password" type="password" required autoComplete="current-password" /></label>
+          <div className="auth-inline-link"><Link href="/forgot-password">Forgot password?</Link></div>
           <button className="create login-submit" type="submit">Sign in →</button>
           <div className="auth-switch">New to TeamFlow? <Link href="/signup">Create an account</Link></div>
         </form>

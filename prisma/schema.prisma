@@ -76,6 +76,7 @@ model User {
   comments                  Comment[]
   mentions                  CommentMention[]
   notifications             Notification[]
+  passwordResetTokens       PasswordResetToken[]
   auditEntries              AuditLog[]               @relation("AuditActor")
 }
 
@@ -317,4 +318,16 @@ model AuditLog {
 
   @@index([resourceType, resourceId, createdAt])
   @@index([actorId, createdAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  hashedToken String  @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }

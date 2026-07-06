@@ -25,6 +25,7 @@ TeamFlow is a collaboration workspace for engineering delivery, incident investi
 - Authenticated task-photo uploads using local development storage, image allowlisting, and a 1 MiB limit
 - Provider boundaries retained for optional future integrations
 - Eighteen passing domain-policy tests using Node's built-in test runner
+- One-time forgot-password flow with expiring reset tokens stored in PostgreSQL
 
 ## Prerequisites
 
@@ -76,10 +77,12 @@ See [docs/source-reconciliation.md](docs/source-reconciliation.md) for the rules
 - A Project Manager may reassign a pending review to another project member or leave it without a replacement.
 - Task attachments are photos only and must be no larger than 1 MiB.
 - External email is intentionally outside v1; all required alerts appear in the in-app inbox.
+- Forgot-password reset links are shown directly in the app because email delivery is not configured in v1.
 
 ## Known limitations
 
 - Authentication uses local credentials and signed HTTP-only sessions; external identity-provider integration is not implemented.
+- Password reset uses one-time database tokens; because no email provider is configured, the reset link is surfaced directly in the UI after request.
 - Uploaded images use ignored local disk storage in development; production should replace this adapter with durable object storage.
 - The local PostgreSQL migrations and seed have been executed successfully.
 - The assignee-capacity threshold must be supplied by project configuration because the source defines the warning but not the overload threshold.
