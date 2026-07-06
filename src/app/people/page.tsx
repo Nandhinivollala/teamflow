@@ -16,7 +16,25 @@ export default async function PeoplePage() {
     where: { id: activeProject.id },
     include: {
       memberships: {
-        include: { user: { include: { tasksAssigned: { where: { projects: { some: { projectId: activeProject.id } } } } } } },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              _count: {
+                select: {
+                  tasksAssigned: {
+                    where: {
+                      projects: { some: { projectId: activeProject.id } },
+                      status: { notIn: ["DONE", "CANCELLED"] },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
       },
     },
@@ -38,7 +56,7 @@ export default async function PeoplePage() {
         <section className="panel settings-members">
           <div className="settings-title"><div><h2>Project members</h2><p>{project.memberships.length} people have access.</p></div></div>
           {project.memberships.map((item) => {
-            const openTasks = item.user.tasksAssigned.filter(({ status }) => !["DONE", "CANCELLED"].includes(status)).length;
+            const openTasks = item.user._count.tasksAssigned;
             return (
               <article key={item.userId}>
                 <span className="avatar">{item.user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("")}</span>

@@ -64,11 +64,21 @@ export default async function Home() {
       ? "Project Manager"
       : "Member";
 
-  const [projectTaskSummaries, pendingReviews, focusTasks, projectRcas, unreadNotifications] =
+  const [projectTaskIds, taskCount, completedCount, openCount, overdueCount, pendingReviews, focusTasks, projectRcas, unreadNotifications] =
     await Promise.all([
       prisma.task.findMany({
-        where: project ? { projects: { some: { projectId: project.id } } } : {},
-        select: { id: true, status: true, dueAt: true },
+        where: { projects: { some: { projectId: project.id } } },
+        select: { id: true },
+      }),
+      prisma.task.count({ where: { projects: { some: { projectId: project.id } } } }),
+      prisma.task.count({ where: { projects: { some: { projectId: project.id } }, status: "DONE" } }),
+      prisma.task.count({ where: { projects: { some: { projectId: project.id } }, status: { notIn: ["DONE", "CANCELLED"] } } }),
+      prisma.task.count({
+        where: {
+          projects: { some: { projectId: project.id } },
+          status: { notIn: ["DONE", "CANCELLED"] },
+          dueAt: { lt: new Date() },
+        },
       }),
       prisma.reviewAssignment.count({ where: { reviewerId: user.id, status: "ASSIGNED" } }),
       prisma.task.findMany({
@@ -77,7 +87,7 @@ export default async function Home() {
           status: { notIn: ["DONE", "CANCELLED"] },
           ...(project ? { projects: { some: { projectId: project.id } } } : {}),
         },
-        include: { projects: { include: { project: true } }, assignee: true },
+        include: { assignee: true },
         orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
         take: 3,
       }),
@@ -88,9 +98,8 @@ export default async function Home() {
       prisma.notification.count({ where: { recipientId: user.id, readAt: null } }),
     ]);
 
-  const taskIds = projectTaskSummaries.map((task) => task.id);
+  const taskIds = projectTaskIds.map((task) => task.id);
   const rcaIds = projectRcas.map((rca) => rca.id);
-  const taskMetrics = projectTaskSummaries.map(({ status, dueAt }) => ({ status, dueAt }));
   const recentActivity = await prisma.auditLog.findMany({
     where: {
       OR: [
@@ -106,13 +115,7 @@ export default async function Home() {
     take: 3,
   });
   const rcaCount = projectRcas.length;
-
-  const completed = taskMetrics.filter((task) => task.status === "DONE").length;
-  const open = taskMetrics.filter((task) => !["DONE", "CANCELLED"].includes(task.status)).length;
-  const overdue = taskMetrics.filter(
-    (task) => !["DONE", "CANCELLED"].includes(task.status) && task.dueAt && task.dueAt < new Date(),
-  ).length;
-  const completionRate = taskMetrics.length ? Math.round((completed / taskMetrics.length) * 100) : 0;
+  const completionRate = taskCount ? Math.round((completedCount / taskCount) * 100) : 0;
 
   return (
     <div className="app-shell">
@@ -121,7 +124,7 @@ export default async function Home() {
         <ProjectSwitcher projects={projects} activeProject={project} redirectTo="/" />
         <nav aria-label="Primary navigation">
           <Link className="active" href="/"><Icon name="grid" />Dashboard</Link>
-          <Link href="/tasks"><Icon name="check" />Tasks<span className="nav-count">{taskMetrics.length}</span></Link>
+          <Link href="/tasks"><Icon name="check" />Tasks<span className="nav-count">{taskCount}</span></Link>
           <Link href="/rcas"><Icon name="alert" />Root cause analyses<span className="nav-count">{rcaCount}</span></Link>
           <Link href="/reports"><Icon name="chart" />Reports</Link>
         </nav>
@@ -157,9 +160,9 @@ export default async function Home() {
           </div>
 
           <section className="metrics" aria-label="Project summary">
-            <Link href="/tasks"><span className="metric-icon violet"><Icon name="check" /></span><div><p>Open tasks</p><strong>{open}</strong><small>Live project total</small></div></Link>
-            <Link href="/tasks"><span className="metric-icon coral"><Icon name="alert" /></span><div><p>Overdue</p><strong>{overdue}</strong><small>Needs attention</small></div></Link>
-            <Link href="/reports"><span className="metric-icon teal"><Icon name="chart" /></span><div><p>Completion rate</p><strong>{completionRate}%</strong><small>{completed} of {taskMetrics.length} completed</small></div></Link>
+            <Link href="/tasks"><span className="metric-icon violet"><Icon name="check" /></span><div><p>Open tasks</p><strong>{openCount}</strong><small>Live project total</small></div></Link>
+            <Link href="/tasks"><span className="metric-icon coral"><Icon name="alert" /></span><div><p>Overdue</p><strong>{overdueCount}</strong><small>Needs attention</small></div></Link>
+            <Link href="/reports"><span className="metric-icon teal"><Icon name="chart" /></span><div><p>Completion rate</p><strong>{completionRate}%</strong><small>{completedCount} of {taskCount} completed</small></div></Link>
             <Link href="/rcas"><span className="metric-icon amber">✓</span><div><p>RCA reviews</p><strong>{pendingReviews}</strong><small>Awaiting your review</small></div></Link>
           </section>
 
@@ -210,7 +213,7 @@ export default async function Home() {
             <div className="panel-title"><div><h2>Project progress</h2><p>Delivery health for active projects</p></div><Link href="/reports">Open reports →</Link></div>
             <div className="progress-row">
               <div className="project-badge indigo">{project.name.slice(0, 1).toUpperCase()}</div>
-              <div className="progress-copy"><b>{project.name}</b><span>{completed} of {taskMetrics.length} tasks completed</span></div>
+              <div className="progress-copy"><b>{project.name}</b><span>{completedCount} of {taskCount} tasks completed</span></div>
               <div className="progress-track"><span style={{ width: `${completionRate}%` }} /></div>
               <strong>{completionRate}%</strong>
             </div>

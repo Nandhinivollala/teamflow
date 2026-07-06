@@ -25,23 +25,31 @@ export default async function RcasPage({
   const { project, projects, membership } = await getProjectContext(user);
   if (!project) notFound();
   const query = await searchParams;
-  const requestedTask = query.task
-    ? await prisma.task.findUnique({
-        where: { id: query.task },
-        include: {
-          rca: { select: { id: true } },
-          projects: {
-            include: {
-              project: {
-                include: {
-                  memberships: { include: { user: true }, orderBy: { user: { name: "asc" } } },
+  const canManageProject = user.systemRole === "ADMIN" || membership?.role === "PROJECT_MANAGER";
+  const [projectMembers, requestedTask] = await Promise.all([
+    prisma.projectMembership.findMany({
+      where: { projectId: project.id },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
+    query.task
+      ? prisma.task.findUnique({
+          where: { id: query.task },
+          include: {
+            rca: { select: { id: true } },
+            projects: {
+              include: {
+                project: {
+                  include: {
+                    memberships: { select: { userId: true } },
+                  },
                 },
               },
             },
           },
-        },
-      })
-    : null;
+        })
+      : Promise.resolve(null),
+  ]);
   const requestedProject = requestedTask?.projects.find(({ projectId }) => projectId === project.id)?.project;
   const selectedTask = requestedTask
     && requestedTask.status === "IN REVIEW"
@@ -53,9 +61,8 @@ export default async function RcasPage({
     prisma.rootCauseAnalysis.findMany({
       where: { projectId: project.id },
       include: {
-        project: { include: { memberships: { include: { user: true }, orderBy: { user: { name: "asc" } } } } },
         sections: { orderBy: { position: "asc" } },
-        reviewAssignments: { include: { reviewer: true }, orderBy: { assignedAt: "asc" } },
+        reviewAssignments: { include: { reviewer: { select: { id: true, name: true } } }, orderBy: { assignedAt: "asc" } },
         task: { select: { id: true, sequence: true, title: true } },
       },
       orderBy: { updatedAt: "desc" },
@@ -118,7 +125,7 @@ export default async function RcasPage({
                 <input type="hidden" name="projectId" value={project.id} />
                 <label>RCA title<input name="title" required minLength={3} maxLength={160} defaultValue={`RCA for TF-${selectedTask.sequence}: ${selectedTask.title}`} /></label>
                 <label>Severity<select name="severity" defaultValue="MEDIUM"><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></label>
-                <label>Assign reviewer<select name="reviewerId" required defaultValue=""><option value="" disabled>Select a project member</option>{requestedProject.memberships.map(({ user: member }) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label>
+                <label>Assign reviewer<select name="reviewerId" required defaultValue=""><option value="" disabled>Select a project member</option>{projectMembers.map(({ user: member }) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label>
                 <label className="rca-findings">Review findings<textarea name="findings" required minLength={10} maxLength={6000} placeholder="Describe what you found, why it happened, and what should change." /></label>
                 <div className="rca-create-actions"><Link className="secondary" href="/tasks">Cancel</Link><button className="create">Save and assign review</button></div>
               </form>
@@ -132,8 +139,7 @@ export default async function RcasPage({
               const activeReviews = rca.reviewAssignments.filter((review) => review.status !== "CANCELLED");
               const outcome = evaluateRcaReviews(activeReviews.map((review) => ({ reviewerId: review.reviewerId, decision: review.decision ?? undefined, comment: review.comment ?? undefined })));
               const mine = activeReviews.find((review) => review.reviewerId === user.id);
-              const myMembership = rca.project.memberships.find(({ userId }) => userId === user.id);
-              const canManage = user.systemRole === "ADMIN" || myMembership?.role === "PROJECT_MANAGER";
+              const canManage = canManageProject;
               const showDecisionForm = Boolean(mine && !mine.decision);
               return (
                 <article className="rca-record panel" id={`rca-${rca.id}`} key={rca.id}>
@@ -155,7 +161,7 @@ export default async function RcasPage({
                           {canManage && review.status === "ASSIGNED" && (
                             <form action={reassignReviewerAction}>
                               <input type="hidden" name="assignmentId" value={review.id} />
-                              <select name="reviewerId" defaultValue={review.reviewerId}><option value="">No replacement</option>{rca.project.memberships.map(({ user: member }) => <option value={member.id} key={member.id}>{member.name}</option>)}</select>
+                              <select name="reviewerId" defaultValue={review.reviewerId}><option value="">No replacement</option>{projectMembers.map(({ user: member }) => <option value={member.id} key={member.id}>{member.name}</option>)}</select>
                               <button className="secondary">Reassign</button>
                             </form>
                           )}

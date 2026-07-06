@@ -30,18 +30,33 @@ export default async function TasksPage({
   const { project, projects, membership } = await getProjectContext(user);
   if (!project) notFound();
 
-  const records = await prisma.task.findMany({
-    where: { projects: { some: { projectId: project.id } } },
-    include: {
-      assignee: true,
-      projects: { include: { project: true } },
-      blockers: { include: { blockingTask: true } },
-      comments: { include: { author: true }, orderBy: { createdAt: "asc" } },
-      attachments: { orderBy: { createdAt: "asc" } },
-      rca: { select: { id: true } },
-    },
-    orderBy: [{ dueAt: "asc" }, { sequence: "asc" }],
-  });
+  const [records, selectedTaskDetails, rcaCount, members] = await Promise.all([
+    prisma.task.findMany({
+      where: { projects: { some: { projectId: project.id } } },
+      include: {
+        assignee: { select: { name: true } },
+        blockers: { include: { blockingTask: { select: { sequence: true, status: true } } } },
+        rca: { select: { id: true } },
+      },
+      orderBy: [{ dueAt: "asc" }, { sequence: "asc" }],
+    }),
+    query.edit
+      ? prisma.task.findFirst({
+          where: { id: query.edit, projects: { some: { projectId: project.id } } },
+          include: {
+            comments: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
+            attachments: { orderBy: { createdAt: "asc" } },
+            blockers: { select: { blockingTaskId: true } },
+          },
+        })
+      : Promise.resolve(null),
+    prisma.rootCauseAnalysis.count({ where: { projectId: project.id } }),
+    prisma.projectMembership.findMany({
+      where: { projectId: project.id },
+      include: { user: { select: { id: true, name: true } } },
+      orderBy: { user: { name: "asc" } },
+    }),
+  ]);
 
   const loadByAssignee = new Map<string, number>();
   for (const task of records) {
@@ -49,6 +64,19 @@ export default async function TasksPage({
       loadByAssignee.set(task.assigneeId, (loadByAssignee.get(task.assigneeId) ?? 0) + 1);
     }
   }
+
+  const selectedComments = selectedTaskDetails?.comments.map((comment) => ({
+    id: comment.id,
+    author: comment.author.name,
+    body: comment.body,
+    createdAt: comment.createdAt.toLocaleString("en-IN"),
+  })) ?? [];
+  const selectedAttachments = selectedTaskDetails?.attachments.map((attachment) => ({
+    id: attachment.id,
+    fileName: attachment.fileName,
+    sizeLabel: `${Math.ceil(attachment.sizeBytes / 1024)} KB`,
+  })) ?? [];
+  const selectedBlockingIds = selectedTaskDetails?.blockers.map(({ blockingTaskId }) => blockingTaskId) ?? [];
 
   const tasks: TaskWorkspaceItem[] = records.map((task) => {
     const status = statuses.has(task.status as TaskWorkspaceItem["status"])
@@ -84,19 +112,10 @@ export default async function TasksPage({
         : "No date",
       dueIso: task.dueAt?.toISOString().slice(0, 10) ?? "",
       dueDay: task.dueAt?.getUTCDate() ?? 0,
-      projectIds: task.projects.map(({ project }) => project.key),
-      blockingTaskIds: task.blockers.map(({ blockingTaskId }) => blockingTaskId),
-      comments: task.comments.map((comment) => ({
-        id: comment.id,
-        author: comment.author.name,
-        body: comment.body,
-        createdAt: comment.createdAt.toLocaleString("en-IN"),
-      })),
-      attachments: task.attachments.map((attachment) => ({
-        id: attachment.id,
-        fileName: attachment.fileName,
-        sizeLabel: `${Math.ceil(attachment.sizeBytes / 1024)} KB`,
-      })),
+      projectIds: [project.key],
+      blockingTaskIds: selectedTaskDetails?.id === task.id ? selectedBlockingIds : [],
+      comments: selectedTaskDetails?.id === task.id ? selectedComments : [],
+      attachments: selectedTaskDetails?.id === task.id ? selectedAttachments : [],
       rcaId: task.rca?.id ?? null,
       warning,
     };
@@ -109,15 +128,11 @@ export default async function TasksPage({
       projectKey={project.key}
       projectName={project.name}
       projects={projects.map(({ key, name }) => ({ key, name }))}
-      rcaCount={await prisma.rootCauseAnalysis.count({ where: { projectId: project.id } })}
+      rcaCount={rcaCount}
       initialCreate={query.create === "1"}
       initialEditingTaskId={query.edit}
       initialSearch={query.search}
-      members={(await prisma.projectMembership.findMany({
-        where: { projectId: project.id },
-        include: { user: true },
-        orderBy: { user: { name: "asc" } },
-      })).map(({ user: member }) => ({ id: member.id, name: member.name }))}
+      members={members.map(({ user: member }) => ({ id: member.id, name: member.name }))}
       viewer={{
         name: user.name,
         initials: initials(user.name),
