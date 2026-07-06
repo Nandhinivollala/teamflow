@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/modules/auth/session";
 import { objectStorage } from "@/modules/files/object-storage";
 
+export const preferredRegion = "sin1";
+
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });

@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: "One workspace for engineering delivery and incident learning.",
 };
 
+export const preferredRegion = "sin1";
+
 export default function RootLayout({
   children,
 }: Readonly<{
