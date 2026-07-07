@@ -7,6 +7,7 @@ import { ScrollToTop } from "@/components/scroll-to-top";
 import { updateProjectSettingsAction } from "./actions";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 
 export default async function SettingsPage() {
   const user = await requireUser();

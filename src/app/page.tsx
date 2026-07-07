@@ -9,6 +9,7 @@ import { getProjectContext } from "@/modules/projects/active-project";
 import { getCachedDashboardData } from "@/modules/workspace-cache";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 
 function initials(name: string) {
   return name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase();

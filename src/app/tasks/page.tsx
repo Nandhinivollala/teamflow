@@ -8,6 +8,7 @@ import { evaluateTaskWarnings } from "@/modules/task/warnings";
 import { getCachedTasksWorkspaceData } from "@/modules/workspace-cache";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 
 export const metadata: Metadata = {
   title: "Tasks | TeamFlow",

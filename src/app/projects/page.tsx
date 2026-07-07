@@ -1,20 +1,17 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { logoutAction } from "@/app/login/actions";
 import { requireUser } from "@/modules/auth/session";
 import { getProjectContext } from "@/modules/projects/active-project";
+import { getCachedProjectPortfolio } from "@/modules/workspace-cache";
 import { createProjectAction } from "./actions";
-import { logoutAction } from "@/app/login/actions";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 
 export default async function ProjectsPage() {
   const user = await requireUser();
   const { project: activeProject, projects } = await getProjectContext(user);
-  const projectDetails = await prisma.project.findMany({
-    where: user.systemRole === "ADMIN" ? {} : { memberships: { some: { userId: user.id } } },
-    include: { _count: { select: { memberships: true, tasks: true } } },
-    orderBy: { name: "asc" },
-  });
+  const projectDetails = await getCachedProjectPortfolio(user.id, user.systemRole);
 
   return (
     <main className="settings-page projects-page">

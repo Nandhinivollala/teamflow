@@ -5,6 +5,7 @@ import { getProjectContext } from "@/modules/projects/active-project";
 import { getCachedReportsData } from "@/modules/workspace-cache";
 
 export const dynamic = "force-dynamic";
+export const preferredRegion = "sin1";
 
 export default async function ReportsPage() {
   const user = await requireUser();

@@ -2,7 +2,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { getCachedUserData } from "@/modules/workspace-cache";
 import { signSessionToken, verifySessionToken } from "./token";
 
 const COOKIE_NAME = "teamflow_session";
@@ -38,29 +38,7 @@ export async function getCurrentUser() {
   const payload = verifySessionToken(token, sessionSecret());
   if (!payload) return null;
 
-  return prisma.user.findUnique({
-    where: { id: payload.userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      systemRole: true,
-      memberships: {
-        select: {
-          role: true,
-          project: {
-            select: {
-              id: true,
-              key: true,
-              name: true,
-              description: true,
-            },
-          },
-        },
-        orderBy: { joinedAt: "asc" },
-      },
-    },
-  });
+  return getCachedUserData(payload.userId);
 }
 
 export async function requireUser() {

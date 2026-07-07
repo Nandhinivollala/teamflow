@@ -11,6 +11,39 @@ export function userCacheTag(userId: string) {
   return `user:${userId}`;
 }
 
+export async function getCachedUserData(userId: string) {
+  return unstable_cache(
+    async () => prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        systemRole: true,
+        memberships: {
+          select: {
+            role: true,
+            project: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                description: true,
+              },
+            },
+          },
+          orderBy: { joinedAt: "asc" },
+        },
+      },
+    }),
+    [`user:${userId}`],
+    {
+      revalidate: 60,
+      tags: [userCacheTag(userId)],
+    },
+  )();
+}
+
 export async function getCachedDashboardData(projectId: string, userId: string) {
   return unstable_cache(
     async () => {
@@ -317,6 +350,35 @@ export async function getCachedPeopleData(projectId: string) {
     {
       revalidate: 30,
       tags: [projectCacheTag(projectId)],
+    },
+  )();
+}
+
+export async function getCachedNotifications(userId: string) {
+  return unstable_cache(
+    async () => prisma.notification.findMany({
+      where: { recipientId: userId },
+      orderBy: { createdAt: "desc" },
+    }),
+    [`notifications:${userId}`],
+    {
+      revalidate: 30,
+      tags: [userCacheTag(userId)],
+    },
+  )();
+}
+
+export async function getCachedProjectPortfolio(userId: string, systemRole: string) {
+  return unstable_cache(
+    async () => prisma.project.findMany({
+      where: systemRole === "ADMIN" ? {} : { memberships: { some: { userId } } },
+      include: { _count: { select: { memberships: true, tasks: true } } },
+      orderBy: { name: "asc" },
+    }),
+    [`portfolio:${systemRole}:${userId}`],
+    {
+      revalidate: 60,
+      tags: [userCacheTag(userId)],
     },
   )();
 }
