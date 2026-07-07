@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { TaskWorkspace, type TaskWorkspaceItem } from "@/components/task-workspace";
 import { prisma } from "@/lib/prisma";
-import { evaluateTaskWarnings } from "@/modules/task/warnings";
 import { requireUser } from "@/modules/auth/session";
 import { getProjectContext } from "@/modules/projects/active-project";
-import { notFound } from "next/navigation";
+import { evaluateTaskWarnings } from "@/modules/task/warnings";
+import { getCachedTasksWorkspaceData } from "@/modules/workspace-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +31,8 @@ export default async function TasksPage({
   const { project, projects, membership } = await getProjectContext(user);
   if (!project) notFound();
 
-  const [records, selectedTaskDetails, rcaCount, members] = await Promise.all([
-    prisma.task.findMany({
-      where: { projects: { some: { projectId: project.id } } },
-      include: {
-        assignee: { select: { name: true } },
-        blockers: { include: { blockingTask: { select: { sequence: true, status: true } } } },
-        rca: { select: { id: true } },
-      },
-      orderBy: [{ dueAt: "asc" }, { sequence: "asc" }],
-    }),
+  const [{ tasks: records, rcaCount, members }, selectedTaskDetails] = await Promise.all([
+    getCachedTasksWorkspaceData(project.id),
     query.edit
       ? prisma.task.findFirst({
           where: { id: query.edit, projects: { some: { projectId: project.id } } },
@@ -50,12 +43,6 @@ export default async function TasksPage({
           },
         })
       : Promise.resolve(null),
-    prisma.rootCauseAnalysis.count({ where: { projectId: project.id } }),
-    prisma.projectMembership.findMany({
-      where: { projectId: project.id },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { user: { name: "asc" } },
-    }),
   ]);
 
   const loadByAssignee = new Map<string, number>();
@@ -71,11 +58,13 @@ export default async function TasksPage({
     body: comment.body,
     createdAt: comment.createdAt.toLocaleString("en-IN"),
   })) ?? [];
+
   const selectedAttachments = selectedTaskDetails?.attachments.map((attachment) => ({
     id: attachment.id,
     fileName: attachment.fileName,
     sizeLabel: `${Math.ceil(attachment.sizeBytes / 1024)} KB`,
   })) ?? [];
+
   const selectedBlockingIds = selectedTaskDetails?.blockers.map(({ blockingTaskId }) => blockingTaskId) ?? [];
 
   const tasks: TaskWorkspaceItem[] = records.map((task) => {
@@ -85,9 +74,9 @@ export default async function TasksPage({
     const priority = priorities.has(task.priority as TaskWorkspaceItem["priority"])
       ? task.priority as TaskWorkspaceItem["priority"]
       : "Medium";
-    const unresolvedBlockers = task.blockers
-      .filter((dependency) => dependency.blockingTask.status !== "DONE")
-      .map((dependency) => `TF-${dependency.blockingTask.sequence}`);
+    const unresolvedBlockers = task.blockerSummaries
+      .filter((dependency) => dependency.status !== "DONE")
+      .map((dependency) => `TF-${dependency.sequence}`);
     const warnings = evaluateTaskWarnings({
       unresolvedBlockerIds: unresolvedBlockers,
       assigneeOpenTaskCount: task.assigneeId ? loadByAssignee.get(task.assigneeId) : undefined,
@@ -106,17 +95,17 @@ export default async function TasksPage({
       status,
       priority,
       assigneeId: task.assigneeId ?? "",
-      assignee: task.assignee ? initials(task.assignee.name) : "—",
-      due: task.dueAt
-        ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(task.dueAt)
+      assignee: task.assigneeName ? initials(task.assigneeName) : "—",
+      due: task.dueAtIso
+        ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(task.dueAtIso))
         : "No date",
-      dueIso: task.dueAt?.toISOString().slice(0, 10) ?? "",
-      dueDay: task.dueAt?.getUTCDate() ?? 0,
+      dueIso: task.dueAtIso?.slice(0, 10) ?? "",
+      dueDay: task.dueAtIso ? new Date(task.dueAtIso).getUTCDate() : 0,
       projectIds: [project.key],
       blockingTaskIds: selectedTaskDetails?.id === task.id ? selectedBlockingIds : [],
       comments: selectedTaskDetails?.id === task.id ? selectedComments : [],
       attachments: selectedTaskDetails?.id === task.id ? selectedAttachments : [],
-      rcaId: task.rca?.id ?? null,
+      rcaId: task.rcaId,
       warning,
     };
   });
@@ -132,7 +121,7 @@ export default async function TasksPage({
       initialCreate={query.create === "1"}
       initialEditingTaskId={query.edit}
       initialSearch={query.search}
-      members={members.map(({ user: member }) => ({ id: member.id, name: member.name }))}
+      members={members}
       viewer={{
         name: user.name,
         initials: initials(user.name),

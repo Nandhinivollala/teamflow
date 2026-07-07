@@ -7,6 +7,7 @@ import { evaluateRcaReviews } from "@/modules/rca/review-policy";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TaskSearchBar } from "@/components/task-search-bar";
+import { getCachedRcasPageData } from "@/modules/workspace-cache";
 import { logoutAction } from "@/app/login/actions";
 import { createTaskRcaAction, reassignReviewerAction, submitReviewAction } from "./actions";
 
@@ -26,12 +27,8 @@ export default async function RcasPage({
   if (!project) notFound();
   const query = await searchParams;
   const canManageProject = user.systemRole === "ADMIN" || membership?.role === "PROJECT_MANAGER";
-  const [projectMembers, requestedTask] = await Promise.all([
-    prisma.projectMembership.findMany({
-      where: { projectId: project.id },
-      include: { user: { select: { id: true, name: true } } },
-      orderBy: { user: { name: "asc" } },
-    }),
+  const [{ projectMembers, rcas, taskCount, unreadNotifications }, requestedTask] = await Promise.all([
+    getCachedRcasPageData(project.id, user.id),
     query.task
       ? prisma.task.findUnique({
           where: { id: query.task },
@@ -57,19 +54,6 @@ export default async function RcasPage({
     && (user.systemRole === "ADMIN" || requestedProject.memberships.some(({ userId }) => userId === user.id))
     ? requestedTask
     : null;
-  const [rcas, taskCount, unreadNotifications] = await Promise.all([
-    prisma.rootCauseAnalysis.findMany({
-      where: { projectId: project.id },
-      include: {
-        sections: { orderBy: { position: "asc" } },
-        reviewAssignments: { include: { reviewer: { select: { id: true, name: true } } }, orderBy: { assignedAt: "asc" } },
-        task: { select: { id: true, sequence: true, title: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-    }),
-    prisma.task.count({ where: { projects: { some: { projectId: project.id } } } }),
-    prisma.notification.count({ where: { recipientId: user.id, readAt: null } }),
-  ]);
   const role = user.systemRole === "ADMIN"
     ? "Administrator"
     : membership?.role === "PROJECT_MANAGER"
@@ -125,7 +109,7 @@ export default async function RcasPage({
                 <input type="hidden" name="projectId" value={project.id} />
                 <label>RCA title<input name="title" required minLength={3} maxLength={160} defaultValue={`RCA for TF-${selectedTask.sequence}: ${selectedTask.title}`} /></label>
                 <label>Severity<select name="severity" defaultValue="MEDIUM"><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select></label>
-                <label>Assign reviewer<select name="reviewerId" required defaultValue=""><option value="" disabled>Select a project member</option>{projectMembers.map(({ user: member }) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label>
+                <label>Assign reviewer<select name="reviewerId" required defaultValue=""><option value="" disabled>Select a project member</option>{projectMembers.map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select></label>
                 <label className="rca-findings">Review findings<textarea name="findings" required minLength={10} maxLength={6000} placeholder="Describe what you found, why it happened, and what should change." /></label>
                 <div className="rca-create-actions"><Link className="secondary" href="/tasks">Cancel</Link><button className="create">Save and assign review</button></div>
               </form>
@@ -157,11 +141,11 @@ export default async function RcasPage({
                       <h3>Reviewers</h3>
                       {activeReviews.map((review) => (
                         <div className="reviewer-row" key={review.id}>
-                          <p><b>{review.reviewer.name}</b><span>{review.decision ?? "AWAITING DECISION"}</span>{review.comment && <small>{review.comment}</small>}</p>
+                          <p><b>{review.reviewerName}</b><span>{review.decision ?? "AWAITING DECISION"}</span>{review.comment && <small>{review.comment}</small>}</p>
                           {canManage && review.status === "ASSIGNED" && (
                             <form action={reassignReviewerAction}>
                               <input type="hidden" name="assignmentId" value={review.id} />
-                              <select name="reviewerId" defaultValue={review.reviewerId}><option value="">No replacement</option>{projectMembers.map(({ user: member }) => <option value={member.id} key={member.id}>{member.name}</option>)}</select>
+                              <select name="reviewerId" defaultValue={review.reviewerId}><option value="">No replacement</option>{projectMembers.map((member) => <option value={member.id} key={member.id}>{member.name}</option>)}</select>
                               <button className="secondary">Reassign</button>
                             </form>
                           )}

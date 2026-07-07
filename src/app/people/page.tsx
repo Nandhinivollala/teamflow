@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { getProjectContext } from "@/modules/projects/active-project";
 import { ScrollToTop } from "@/components/scroll-to-top";
+import { getCachedPeopleData } from "@/modules/workspace-cache";
 import { addProjectMemberAction, updateProjectMemberRoleAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -12,33 +12,7 @@ export default async function PeoplePage() {
   const user = await requireUser();
   const { project: activeProject, membership } = await getProjectContext(user);
   if (!activeProject) notFound();
-  const project = await prisma.project.findUnique({
-    where: { id: activeProject.id },
-    include: {
-      memberships: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              _count: {
-                select: {
-                  tasksAssigned: {
-                    where: {
-                      projects: { some: { projectId: activeProject.id } },
-                      status: { notIn: ["DONE", "CANCELLED"] },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
-      },
-    },
-  });
+  const project = await getCachedPeopleData(activeProject.id);
   if (!project) notFound();
   const canManage = user.systemRole === "ADMIN" || membership?.role === "PROJECT_MANAGER";
 
@@ -56,7 +30,7 @@ export default async function PeoplePage() {
         <section className="panel settings-members">
           <div className="settings-title"><div><h2>Project members</h2><p>{project.memberships.length} people have access.</p></div></div>
           {project.memberships.map((item) => {
-            const openTasks = item.user._count.tasksAssigned;
+            const openTasks = item.user.openTasks;
             return (
               <article key={item.userId}>
                 <span className="avatar">{item.user.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("")}</span>

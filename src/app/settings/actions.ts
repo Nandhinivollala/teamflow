@@ -1,8 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
+import { projectCacheTag } from "@/modules/workspace-cache";
 
 async function requireProjectManager(projectId: string) {
   const user = await requireUser();
@@ -34,6 +35,7 @@ export async function updateProjectSettingsAction(formData: FormData) {
       },
     }),
   ]);
+  revalidateTag(projectCacheTag(projectId), "max");
   revalidatePath("/");
   revalidatePath("/settings");
   revalidatePath("/people");

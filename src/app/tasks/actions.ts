@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +8,7 @@ import { requireUser } from "@/modules/auth/session";
 import { extractMentionHandles } from "@/modules/comments/mentions";
 import { objectStorage } from "@/modules/files/object-storage";
 import { canTransitionTask, isTaskStatus } from "@/modules/task/transitions";
+import { projectCacheTag, userCacheTag } from "@/modules/workspace-cache";
 
 const priorities = new Set(["High", "Medium", "Low"]);
 
@@ -97,6 +98,8 @@ export async function createTaskAction(formData: FormData) {
     if (!duplicateCreateRequest) throw error;
   }
 
+  revalidateTag(projectCacheTag(project.id), "max");
+  revalidateTag(userCacheTag(requestedAssigneeId), "max");
   revalidatePath("/tasks");
 }
 
@@ -217,6 +220,15 @@ export async function updateTaskAction(formData: FormData) {
     }
   });
 
+  for (const projectId of projectIds) {
+    revalidateTag(projectCacheTag(projectId), "max");
+  }
+  if (assigneeId) {
+    revalidateTag(userCacheTag(assigneeId), "max");
+  }
+  if (task.assigneeId) {
+    revalidateTag(userCacheTag(task.assigneeId), "max");
+  }
   revalidatePath("/tasks");
 }
 
@@ -244,6 +256,7 @@ export async function uploadTaskPhotoAction(formData: FormData) {
   if (!task || (user.systemRole !== "ADMIN" && !task.projects.some(({ project }) => project.memberships.length))) {
     throw new Error("You do not have access to this task.");
   }
+  const projectIds = task.projects.map(({ projectId }) => projectId);
 
   const storageKey = `${taskId}/${randomUUID()}.${extension}`;
   const body = new Uint8Array(await photo.arrayBuffer());
@@ -272,6 +285,9 @@ export async function uploadTaskPhotoAction(formData: FormData) {
   } catch (error) {
     await objectStorage.delete(stored.key);
     throw error;
+  }
+  for (const projectId of projectIds) {
+    revalidateTag(projectCacheTag(projectId), "max");
   }
   revalidatePath("/tasks");
 }
@@ -318,6 +334,9 @@ export async function deleteTaskPhotoAction(attachmentId: string) {
     console.error("Failed to delete stored photo", error);
   }
 
+  for (const { projectId } of attachment.task.projects) {
+    revalidateTag(projectCacheTag(projectId), "max");
+  }
   revalidatePath("/tasks");
 }
 
@@ -380,5 +399,11 @@ export async function addTaskCommentAction(formData: FormData) {
       data: { actorId: user.id, action: "TASK_COMMENTED", resourceType: "Task", resourceId: taskId, metadata: { commentId: comment.id } },
     });
   });
+  for (const { projectId } of task.projects) {
+    revalidateTag(projectCacheTag(projectId), "max");
+  }
+  for (const recipient of mentioned.filter(({ id }) => id !== user.id)) {
+    revalidateTag(userCacheTag(recipient.id), "max");
+  }
   revalidatePath("/tasks");
 }

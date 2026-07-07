@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { logoutAction } from "@/app/login/actions";
 import { ProjectSwitcher } from "@/components/project-switcher";
 import { TaskSearchBar } from "@/components/task-search-bar";
-import { logoutAction } from "@/app/login/actions";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { requireUser } from "@/modules/auth/session";
 import { getProjectContext } from "@/modules/projects/active-project";
-import { prisma } from "@/lib/prisma";
+import { getCachedDashboardData } from "@/modules/workspace-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -58,69 +58,25 @@ export default async function Home() {
   const user = await requireUser();
   const { project, projects, membership } = await getProjectContext(user);
   if (!project) redirect("/projects");
+
   const role = user.systemRole === "ADMIN"
     ? "Administrator"
     : membership?.role === "PROJECT_MANAGER"
       ? "Project Manager"
       : "Member";
 
-  const [projectTaskIds, taskCount, completedCount, openCount, overdueCount, pendingReviews, focusTasks, projectRcas, unreadNotifications] =
-    await Promise.all([
-      prisma.task.findMany({
-        where: { projects: { some: { projectId: project.id } } },
-        select: { id: true },
-      }),
-      prisma.task.count({ where: { projects: { some: { projectId: project.id } } } }),
-      prisma.task.count({ where: { projects: { some: { projectId: project.id } }, status: "DONE" } }),
-      prisma.task.count({ where: { projects: { some: { projectId: project.id } }, status: { notIn: ["DONE", "CANCELLED"] } } }),
-      prisma.task.count({
-        where: {
-          projects: { some: { projectId: project.id } },
-          status: { notIn: ["DONE", "CANCELLED"] },
-          dueAt: { lt: new Date() },
-        },
-      }),
-      prisma.reviewAssignment.count({ where: { reviewerId: user.id, status: "ASSIGNED" } }),
-      prisma.task.findMany({
-        where: {
-          assigneeId: user.id,
-          status: { notIn: ["DONE", "CANCELLED"] },
-          ...(project ? { projects: { some: { projectId: project.id } } } : {}),
-        },
-        select: {
-          id: true,
-          sequence: true,
-          title: true,
-          dueAt: true,
-          assignee: { select: { name: true } },
-        },
-        orderBy: [{ dueAt: "asc" }, { updatedAt: "desc" }],
-        take: 3,
-      }),
-      prisma.rootCauseAnalysis.findMany({
-        where: project ? { projectId: project.id } : {},
-        select: { id: true },
-      }),
-      prisma.notification.count({ where: { recipientId: user.id, readAt: null } }),
-    ]);
+  const {
+    taskCount,
+    completedCount,
+    openCount,
+    overdueCount,
+    pendingReviews,
+    unreadNotifications,
+    focusTasks,
+    recentActivity,
+    rcaCount,
+  } = await getCachedDashboardData(project.id, user.id);
 
-  const taskIds = projectTaskIds.map((task) => task.id);
-  const rcaIds = projectRcas.map((rca) => rca.id);
-  const recentActivity = await prisma.auditLog.findMany({
-    where: {
-      OR: [
-        { actorId: user.id, action: { in: ["ACCOUNT_CREATED", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_COMPLETED"] } },
-        { action: "PROJECT_CREATED", actorId: user.id, resourceId: project.id },
-        { resourceType: "Project", resourceId: project.id },
-        ...(taskIds.length > 0 ? [{ resourceType: "Task", resourceId: { in: taskIds } }] : []),
-        ...(rcaIds.length > 0 ? [{ resourceType: "RootCauseAnalysis", resourceId: { in: rcaIds } }] : []),
-      ],
-    },
-    include: { actor: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 3,
-  });
-  const rcaCount = projectRcas.length;
   const completionRate = taskCount ? Math.round((completedCount / taskCount) * 100) : 0;
 
   return (
@@ -186,10 +142,10 @@ export default async function Home() {
                       <div><span className="task-key">TF-{task.sequence}</span><h3>{task.title}</h3></div>
                       <div className="task-meta">
                         <span>{project.name}</span><i />
-                        <span>{task.dueAt ? `◷ ${task.dueAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No due date"}</span>
+                        <span>{task.dueAtIso ? `◷ ${new Date(task.dueAtIso).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No due date"}</span>
                       </div>
                     </div>
-                    <div className="people"><span>{task.assignee ? initials(task.assignee.name) : "—"}</span></div>
+                    <div className="people"><span>{task.assigneeName ? initials(task.assigneeName) : "—"}</span></div>
                     <Link className="task-more" href={`/tasks?edit=${task.id}`} aria-label={`Edit TF-${task.sequence}`}>•••</Link>
                   </article>
                 ))}
@@ -205,9 +161,9 @@ export default async function Home() {
                 {recentActivity.map((item, index) => (
                   <article key={item.id}>
                     <span className="avatar" style={{ background: ["#6d5ce7", "#0d9488", "#2563eb"][index % 3] }}>
-                      {item.actor ? initials(item.actor.name) : "TF"}
+                      {item.actorName ? initials(item.actorName) : "TF"}
                     </span>
-                    <div><p>{item.actor?.name ?? "TeamFlow"} {activityText(item.action)}</p><small>{relativeTime(item.createdAt)}</small></div>
+                    <div><p>{item.actorName ?? "TeamFlow"} {activityText(item.action)}</p><small>{relativeTime(new Date(item.createdAtIso))}</small></div>
                   </article>
                 ))}
               </div>

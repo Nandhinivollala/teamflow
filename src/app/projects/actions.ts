@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { setActiveProjectKey } from "@/modules/projects/active-project";
+import { projectCacheTag, userCacheTag } from "@/modules/workspace-cache";
 
 const safeDestinations = new Set(["/", "/tasks", "/rcas", "/reports", "/people", "/settings", "/projects"]);
 
@@ -54,6 +55,14 @@ export async function createProjectAction(formData: FormData) {
   });
 
   await setActiveProjectKey(key);
+  const createdProject = await prisma.project.findUnique({
+    where: { key },
+    select: { id: true },
+  });
+  if (createdProject) {
+    revalidateTag(projectCacheTag(createdProject.id), "max");
+  }
+  revalidateTag(userCacheTag(user.id), "max");
   revalidatePath("/");
   revalidatePath("/projects");
   redirect("/");

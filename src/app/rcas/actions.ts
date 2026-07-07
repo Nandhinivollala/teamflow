@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/modules/auth/session";
 import { submitReview } from "@/modules/rca/review-policy";
+import { projectCacheTag, userCacheTag } from "@/modules/workspace-cache";
 
 const severities = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
 
@@ -96,6 +97,8 @@ export async function createTaskRcaAction(formData: FormData) {
     return created;
   });
 
+  revalidateTag(projectCacheTag(project.id), "max");
+  revalidateTag(userCacheTag(reviewerId), "max");
   revalidatePath("/tasks");
   revalidatePath("/rcas");
   redirect(`/rcas#rca-${rca.id}`);
@@ -122,6 +125,14 @@ export async function submitReviewAction(formData: FormData) {
       data: { type: "RCA_REVIEW_DECIDED", aggregateId: assignment.rcaId, payload: { assignmentId, reviewerId: user.id, decision } },
     }),
   ]);
+  const rca = await prisma.rootCauseAnalysis.findUnique({
+    where: { id: assignment.rcaId },
+    select: { projectId: true },
+  });
+  if (rca) {
+    revalidateTag(projectCacheTag(rca.projectId), "max");
+  }
+  revalidateTag(userCacheTag(user.id), "max");
   revalidatePath("/rcas");
 }
 
@@ -195,5 +206,10 @@ export async function reassignReviewerAction(formData: FormData) {
       },
     });
   });
+  revalidateTag(projectCacheTag(assignment.rca.projectId), "max");
+  revalidateTag(userCacheTag(assignment.reviewerId), "max");
+  if (reviewerId) {
+    revalidateTag(userCacheTag(reviewerId), "max");
+  }
   revalidatePath("/rcas");
 }
