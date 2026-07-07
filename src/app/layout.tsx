@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { RoutePrefetcher } from "@/components/route-prefetcher";
 
 export const metadata: Metadata = {
   title: "TeamFlow",
@@ -15,7 +16,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <RoutePrefetcher />
+        {children}
+      </body>
     </html>
   );
 }
